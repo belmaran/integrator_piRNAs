@@ -1,0 +1,45 @@
+---
+title: "plot fragment ratios"
+author: "Toni Beltran"
+date: "01/02/2020"
+output: html_document
+---
+
+## Peak 2 quantifications - 2 reps
+
+Here I plot the total spms corresponding to the second fragment peak, normalized to total piRNA spms, and peak1 spms.
+
+```{r plot fragment ratios - sequences per million}
+
+setwd("/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig4_FigS5_degradationfragments_firstpeak_cleanup/secondpass_removing_annotated_21Us_and_nearby21Us/")
+library(ggplot2)
+
+peak2_spms<-c(27.67,9.12,8.46,4.38,25.20,10.19,9.73,5.19)
+peak1_spms<-c(19.68,14.94,13.45,5.73,28.08,25.58,15.5,7.26)
+piRNA_spms<-c(9946/4993440*1e6,10073/3012659*1e6,8089/4713499*1e6,7062/2208022*1e6,7039/1569131*1e6,9341/1409526*1e6,5616/1457600*1e6,5279/983429*1e6)
+
+condition<-c("N2 EV","N2 ints-11 RNAi","TFIIS EV","TFIIS ints-11 RNAi")
+
+df<-data.frame(ratios=peak2_spms/peak1_spms,condition=c(condition,condition),replicate=factor(c(rep(1,4),rep(2,4))))
+ggplot(df,aes(y=ratios,x=condition,col=condition,fill=condition))+
+  geom_point(aes(shape=replicate))+
+  theme_classic()+
+  stat_summary(fun.y = median, fun.ymin = median, fun.ymax = median,geom = "crossbar", width = 0.25)+
+  scale_shape_manual(values=c(24,25))+
+  ylab("fragment to 21U peak ratios (spm)")
+ggsave("fragment_to_firstpeak_ratios_spm.pdf")
+
+df<-data.frame(ratios=peak2_spms/piRNA_spms,condition=c(condition,condition),replicate=factor(c(rep(1,4),rep(2,4))))
+ggplot(df,aes(y=ratios,x=condition,col=condition,fill=condition))+
+  geom_point(aes(shape=replicate))+
+  theme_classic()+
+  stat_summary(fun.y = median, fun.ymin = median, fun.ymax = median,geom = "crossbar", width = 0.25)+
+  scale_shape_manual(values=c(24,25))+
+  ylab("fragment to 21U-RNA ratios (spm)")
+ggsave("fragment_to_piRNA_ratios_spm.pdf")  
+
+
+```
+
+
+

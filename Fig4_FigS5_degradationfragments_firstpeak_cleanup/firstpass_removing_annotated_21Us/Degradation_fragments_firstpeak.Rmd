@@ -1,0 +1,92 @@
+---
+title: "Degradation fragments, first peak"
+author: "Toni Beltran"
+date: "24/02/2020"
+output: html_document
+---
+
+Here I focus on the first peak observed at piRNA loci - we still see plenty of 21U-RNA reads initiating close to annotated 21U-RNAs, these are likely to be overlapping piRNAs (Billi et al 2013) that have not been detected/annotated in Piwi IPs.
+I make a bed file containing these to remove them from the raw libraries and repeat the analysis.
+
+```{r load data}
+
+library(ggplot2)
+
+setwd("/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig4_FigS5_degradationfragments_firstpeak_cleanup/firstpass_removing_annotated_21Us/")
+
+path="/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig4_FigS5_degradationfragments_firstpeak_cleanup/firstpass_removing_annotated_21Us/"
+fragments_10nt_files <- list.files(path=".",pattern="*10nt")
+fragments_10nt_files<-paste0(path,fragments_10nt_files,sep="")
+
+fragments_10 <- lapply(fragments_10nt_files,function(i){
+  read.csv(i, header=FALSE,sep="\t")})
+
+names<-c("N2_EV_1","N2_ints11_1","TFIIS_EV_1","N2_EV_2","TFIIS_ints11_1","N2_ints11_2","TFIIS_EV_2","TFIIS_ints11_2")
+
+
+for (i in seq(length(names))){
+  
+ df<-fragments_10[[i]]
+  
+ df$distance <- df$V2-df$V10
+ df$distance[which(df$V8=="-")]<-df$distance[which(df$V8=="-")]*(-1)
+ df<-df[-which(df$V1=="MtDNA"),]
+ 
+ dfdist<-df[,c("distance","V12","V5","V4")]
+ colnames(dfdist)<-c("distance","locus_name","first_nucleotide","fragment_length")
+ print(ggplot(dfdist)+geom_histogram(aes(x=distance,fill=first_nucleotide),breaks=seq(-10,10))+theme_classic()+ggtitle(names[i])+xlab("distance to 21U-RNA")+ylab("number of sequences"))
+ print(ggplot(dfdist)+geom_bar(aes(x=fragment_length,fill=first_nucleotide))+theme_classic()+coord_cartesian(xlim=c(0,50))+ggtitle(names[i])+xlab("fragment length")+ylab("number of sequences"))
+ ggsave(paste(paste("firstnt_len_",names[i],sep=""),"pdf",sep="."))
+ 
+ print(ggplot(dfdist)+geom_bar(aes(x=distance,fill=factor(fragment_length)),breaks=seq(-10,10))+theme_classic())
+
+ print(sum(df$V6))
+}
+
+
+
+all_fragments<-data.frame()
+
+for (i in seq(length(names))){
+  
+ df<-fragments_10[[i]]
+ all_fragments<-rbind(all_fragments,df)
+}
+
+all_fragments$distance <- all_fragments$V2-all_fragments$V10
+all_fragments$distance[which(all_fragments$V8=="-")]<-all_fragments$distance[which(all_fragments$V8=="-")]*(-1)
+all_fragments<-unique(all_fragments[,c("V1","V2","V4","V5","V8","distance")])
+colnames(all_fragments)[4]<-"first nucleotide"
+ggplot(all_fragments)+geom_bar(aes(x=V4,fill=`first nucleotide`))+ylab("number of sequences")+xlab("length (nt)")+theme_classic()
+ggsave("firstnt_len_all_libraries_combined.pdf")
+
+ggplot(all_fragments[which(all_fragments$distance>-11 & all_fragments$distance<11),])+
+  geom_bar(aes(x=distance,fill=`first nucleotide`))+
+  ylab("number of sequences")+xlab("distance to 21U-RNA")+
+  theme_classic()
+ggsave("firstnt_distanceto21U_all_libraries_combined.pdf")
+
+
+ggplot(all_fragments[which(all_fragments$distance>-4 & all_fragments$distance<4),])+
+  geom_bar(aes(x=V4,fill=`first nucleotide`))+ylab("number of sequences")+xlab("length (nt)")+theme_classic()
+
+ggplot(all_fragments[which(all_fragments$distance>-7 & all_fragments$distance<7),])+
+  geom_bar(aes(x=V4,fill=`first nucleotide`))+ylab("number of sequences")+xlab("length (nt)")+theme_classic()
+
+
+pis<-all_fragments[which(all_fragments$V4==21 & all_fragments$`first nucleotide`=="T"),]
+pis$twentyone_plus_end<-pis$V2+21
+pis$twentyone_minus_start<-pis$V2-21
+
+plus_pis<-pis[which(pis$V8=="+"),c("V1","V2","twentyone_plus_end","V4","distance","V8")]
+minus_pis<-pis[which(pis$V8=="-"),c("V1","twentyone_minus_start","V2","V4","distance","V8")]
+colnames(plus_pis)<-c("V1","V2","V3","V4","V5","V6")
+colnames(minus_pis)<-c("V1","V2","V3","V4","V5","V6")
+
+write.table(rbind(plus_pis,minus_pis),
+            row.names=FALSE,col.names = FALSE, file = "unannotated_piRNAs_plus.bed",sep="\t",quote=FALSE)
+
+```
+
+
+
