@@ -1,0 +1,1 @@
+../IRFinder/bin/analysisWithNoReplicates.pl -A pooled_N2_run2/IRFinder-IR-dir.txt -B pooled_TFIIS_I_run2/IRFinder-IR-dir.txt > TFIIS_ints11RNAi_vs_N2_EV.txt 

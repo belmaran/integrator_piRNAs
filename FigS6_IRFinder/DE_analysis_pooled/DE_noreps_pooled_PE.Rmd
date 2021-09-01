@@ -1,0 +1,23 @@
+---
+title: "DE-IR PE"
+author: "Toni Beltran"
+date: "01/02/2020"
+output: html_document
+---
+
+```{r load data}
+
+setwd("/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/SuppFig6_IRFinder/DE_analysis_pooled")
+
+IRdata<-read.table("TFIIS_ints11RNAi_vs_N2_EV.txt",header=TRUE)
+
+length(which(IRdata$p.diff<0.05))
+length(which(IRdata$p.increased<0.05))
+length(which(IRdata$p.decreased<0.05))
+
+boxplot(log2(IRdata$A.IRratio+1e-4)-log2(IRdata$B.IRratio+1e-4))
+
+#A is N2 EV
+#B is TFIIS ints11
+
+```
