@@ -1,0 +1,111 @@
+---
+title: "Foci counts ints-6::GFP and PRDE-1;;mCherry"
+author: "Toni Beltran"
+date: "21/01/2020"
+output: html_document
+---
+
+Code to analyze the co-localization data from ints-6::GFP and PRDE-1::mCherry across the germline. I quantified the number of foci of each type and the number of co-localizing foci across the germline, recording the "row number" of the nuclei in the image.
+
+I first analysed the data by generating the rolling average of each type of foci, co-localizing and not co-localizing, across cell rows (window size=20 cells).
+
+All the trends that we see in the data (See Figure 2) are recapitulated in this running mean - it's a nice way of incorporating the positional information in a continuous manner.
+
+```{r load data}
+
+library(ggplot2)
+library(zoo)
+library(reshape2)
+
+setwd("/Users/ab6415/Documents/Work_laptop_stuff/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig2_imaging_ints6GFP_prde1cherry/")
+
+dat<-read.csv("foci_counts.csv")
+dat<-dat[which(dat$row>6),]
+
+mean(tabulate(dat$row)[which(tabulate(dat$row)>0)])
+#4 cells per row on average
+
+
+nrow_for_rollingmean<-20
+dat_rollingmean<-data.frame(row=rollmean(dat$row,nrow_for_rollingmean),
+                            green=rollmean(dat$green,nrow_for_rollingmean),
+                            red=rollmean(dat$red,nrow_for_rollingmean),
+                            col=rollmean(dat$col,nrow_for_rollingmean),
+                            red_noloc=rollmean(dat$red_noloc,nrow_for_rollingmean),
+                            green_noloc=rollmean(dat$green_noloc,nrow_for_rollingmean))
+                            
+dat_rollingmean.mlt<-melt(dat_rollingmean,id.vars = "row")
+ggplot(dat_rollingmean.mlt)+
+  geom_line(aes(x=row,y=value,group=variable,col=variable))+
+  ylim(0,2)+
+  scale_color_manual(values=c("green","red","yellow","maroon","darkgreen"))+
+  theme_classic()
+ggsave("runningmean_colocalization_w20.pdf")
+
+
+redvars<-c("green","red","col")                  
+dat_rollingmean.mlt_reduced<-dat_rollingmean.mlt[which(dat_rollingmean.mlt$variable %in% redvars),]
+ggplot(dat_rollingmean.mlt_reduced)+
+  geom_line(aes(x=row,y=value,group=variable,col=variable))+
+  ylim(0,2)+
+  scale_color_manual(values=c("green","red","yellow"))+
+  theme_classic()
+ggsave("runningmean_colocalization_w20_reduced.pdf")
+
+```
+
+Here I do a similar analysis but grouping by sections of the germline as split in Figure 2.
+  - Section 2: 10-16
+  - Section 3: 17-26
+  - Section 4: 29-33
+  - Section 5: >33
+  
+```{r considering sections of the germline}
+
+dat<-read.csv("foci_counts.csv")
+
+dat$section<-rep(1,nrow(dat))
+dat[which(dat$row>9 & dat$row<17),"section"]<-2
+dat[which(dat$row>16 & dat$row<28),"section"]<-3
+dat[which(dat$row>27 & dat$row<33),"section"]<-4
+dat[which(dat$row>33),"section"]<-5
+
+dat.mlt<-melt(dat,id.vars = c("row","section"))
+
+ggplot(dat.mlt)+geom_col(aes(x=section,y=value,group=variable))+
+  facet_grid(rows=dat.mlt$variable)
+
+ggplot(dat.mlt, aes(x=section, y=value,group=variable))+
+  stat_summary(fun.y="mean", geom="bar")+
+  facet_grid(rows=dat.mlt$variable)+
+  theme_classic()
+
+ggplot(dat.mlt, aes(x=section, y=value,group=variable))+
+  stat_summary(fun.y="mean", geom="bar")+
+  facet_grid(rows=dat.mlt$variable)+
+  theme_classic()
+
+ggplot(dat.mlt, aes(y=value,group=factor(section),col=variable))+
+  geom_boxplot()+
+  facet_grid(rows=dat.mlt$variable)+
+  scale_color_manual(values=c("green","red","yellow","maroon","darkgreen"))+
+  theme_classic()
+
+ggplot(dat.mlt, aes(x=value,col=variable,fill=variable))+
+  geom_bar()+
+  facet_grid(variable~section)+
+  scale_color_manual(values=c("green","red","yellow","maroon","darkgreen"))+
+  scale_fill_manual(values=c("green","red","yellow","maroon","darkgreen"))+
+  theme_classic()
+
+
+library(plyr)
+df<-as.data.frame(with(dat.mlt,table(section,variable,value)))
+df<- ddply(df, .(section,variable), transform, p = Freq/sum(Freq))
+ggplot(df[-which(df$value==0),], aes(x=value, y=p,col=variable,fill=variable))+geom_col()+facet_grid(variable~section)+
+  scale_color_manual(values=c("green","red","yellow","darkgreen","maroon"))+
+  scale_fill_manual(values=c("green","red","yellow","darkgreen","maroon"))+
+  theme_classic()
+ggsave("colocalization_quantification.pdf")
+
+```
