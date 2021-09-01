@@ -1,0 +1,322 @@
+---
+title: "np vs chr length"
+output: html_document
+---
+
+```{r load data}
+
+library(ggplot2)
+
+setwd("/Users/ab6415/Documents/Work_laptop_stuff/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig1_Fig3_FigS3_FigS4_precursors_analysis/length/")
+
+piRNA_counts_wholeanimal_E1 <- list.files(path="../counts/wholeworm/",
+    pattern="*pis"); piRNA_counts_wholeanimal_E1<-paste0("../counts/wholeworm/",piRNA_counts_wholeanimal_E1,sep="")
+piRNA_counts_wholeanimal_E1_longreads <- list.files(path="../counts/wholeworm_longreads/",
+    pattern="*pis"); piRNA_counts_wholeanimal_E1_longreads<-paste0("../counts/wholeworm_longreads/",piRNA_counts_wholeanimal_E1_longreads,sep="")
+piRNA_counts_germnuclei_total <- list.files(path="../counts/germnuclei_total/",
+    pattern="*pis"); piRNA_counts_germnuclei_total<-paste0("../counts/germnuclei_total/",piRNA_counts_germnuclei_total,sep="")
+piRNA_counts_germnuclei_fractionation <- list.files(path="../counts/germnuclei_fractionation_rep1/",
+    pattern="*pis"); piRNA_counts_germnuclei_fractionation<-paste0("../counts/germnuclei_fractionation_rep1/",piRNA_counts_germnuclei_fractionation,sep="")
+piRNA_counts_germnuclei_fractionation_rep2 <- list.files(path="../counts/germnuclei_fractionation_rep2/",
+    pattern="*pis"); piRNA_counts_germnuclei_fractionation_rep2<-paste0("../counts/germnuclei_fractionation_rep2/",piRNA_counts_germnuclei_fractionation_rep2,sep="")
+
+
+piRNA_counts_filenames<-c(piRNA_counts_wholeanimal_E1,piRNA_counts_wholeanimal_E1_longreads,piRNA_counts_germnuclei_total,piRNA_counts_germnuclei_fractionation,piRNA_counts_germnuclei_fractionation_rep2)
+piRNA_counts_filenames<-piRNA_counts_filenames[c(1:13,19:21,14:18,27:30,22,23,25,26)]
+
+names <-c("wholeworm_EV_col1","wholeworm_ints11_col1","wholeworm_EV_col2","wholeworm_ints11_col2","wholeworm_EV_96h","wholeworm_ints11_96h","wholeworm_EV_col1_longreads","wholeworm_ints11_col1_longreads","wholeworm_ints11_col2_longreads","germnuclei_total_N2_EV","germnuclei_total_N2_ints11","germnuclei_total_TFIIS_EV","germnuclei_total_TFIIS_ints11","germnuclei_NP_N2_EV","germnuclei_NP_N2_ints11","germnuclei_NP_TFIIS_EV","germnuclei_NP_TFIIS_ints11","germnuclei_CHR_N2_EV","germnuclei_CHR_N2_ints11","germnuclei_CHR_TFIIS_EV","germnuclei_CHR_TFIIS_ints11","germnuclei_rep2_NP_N2_EV","germnuclei_rep2_NP_N2_ints11","germnuclei_rep2_NP_TFIIS_EV","germnuclei_rep2_NP_TFIIS_ints11","germnuclei_rep2_CHR_N2_EV","germnuclei_rep2_CHR_N2_ints11","germnuclei_rep2_CHR_TFIIS_EV","germnuclei_rep2_CHR_TFIIS_ints11")
+
+piRNA_counts_filenames
+names         
+
+piRNA_counts <- lapply(piRNA_counts_filenames,function(i){
+  read.csv(paste(i,sep=""), header=FALSE,sep="\t")
+})
+
+
+piRNA_counts_precfiltered <- lapply(piRNA_counts, function(df){
+ df$plus_d <- df$V10-df$V2
+ df$minus_d <- df$V3-df$V11
+ df_plus<-df[which(df$plus_d==2 & df$V8=="+"),]
+ df_minus<-df[which(df$minus_d==(2) & df$V8=="-"),]
+ return(rbind(df_plus,df_minus))
+})
+
+motifdep_piRNA_precursors<-lapply(piRNA_counts_precfiltered,function(df){return(df[c(grep("^21UR-",df$V12),grep("^piRNA_type_1",df$V12)),])})
+motifind_piRNA_precursors<-lapply(piRNA_counts_precfiltered,function(df){return(df[grep("^piRNA_type_2",df$V12),])})
+
+N2_EV_np<-rbind(motifdep_piRNA_precursors[[14]],motifdep_piRNA_precursors[[22]])
+N2_EV_np<-aggregate(N2_EV_np[,"V6"],by=N2_EV_np[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+N2_ints11_np<-rbind(motifdep_piRNA_precursors[[15]],motifdep_piRNA_precursors[[23]])
+N2_ints11_np<-aggregate(N2_ints11_np[,"V6"],by=N2_ints11_np[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+tfiis_EV_np<-rbind(motifdep_piRNA_precursors[[16]],motifdep_piRNA_precursors[[24]])
+tfiis_EV_np<-aggregate(tfiis_EV_np[,"V6"],by=tfiis_EV_np[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+tfiis_ints11_np<-rbind(motifdep_piRNA_precursors[[17]],motifdep_piRNA_precursors[[25]])
+tfiis_ints11_np<-aggregate(tfiis_ints11_np[,"V6"],by=tfiis_ints11_np[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+
+N2_EV_chr<-rbind(motifdep_piRNA_precursors[[18]],motifdep_piRNA_precursors[[26]])
+N2_EV_chr<-aggregate(N2_EV_chr[,"V6"],by=N2_EV_chr[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+N2_ints11_chr<-rbind(motifdep_piRNA_precursors[[19]],motifdep_piRNA_precursors[[27]])
+N2_ints11_chr<-aggregate(N2_ints11_chr[,"V6"],by=N2_ints11_chr[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+tfiis_EV_chr<-rbind(motifdep_piRNA_precursors[[20]],motifdep_piRNA_precursors[[28]])
+tfiis_EV_chr<-aggregate(tfiis_EV_chr[,"V6"],by=tfiis_EV_chr[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+tfiis_ints11_chr<-rbind(motifdep_piRNA_precursors[[21]],motifdep_piRNA_precursors[[29]])
+tfiis_ints11_chr<-aggregate(tfiis_ints11_chr[,"V6"],by=tfiis_ints11_chr[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+
+motifdep_piRNA_precursors_agg<-list(N2_EV_np,N2_ints11_np,tfiis_EV_np,tfiis_ints11_np,
+                                    N2_EV_chr,N2_ints11_chr,tfiis_EV_chr,tfiis_ints11_chr)
+
+names_agg<-c("N2_EV_np","N2_ints11_np","tfiis_EV_np","tfiis_ints11_np",
+             "N2_EV_chr","N2_ints11_chr","tfiis_EV_chr","tfiis_ints11_chr")
+
+```
+
+### Locus-by-locus analysis
+
+# Median length shift
+
+```{r median lenshift col}
+
+library(reshape2)
+library(dplyr)
+
+motifdep_piRNA_precursors_data_summary<-lapply(motifdep_piRNA_precursors_agg,function(df){
+  number_seqs<-aggregate(df[,"V12"],by=list(df[,"V12"]),FUN=length)
+  median_length<-aggregate(df[,"V4"],by=list(df[,"V12"]),FUN=median)
+  mean_length<-aggregate(df[,"V4"],by=list(df[,"V12"]),FUN=mean)
+  
+  number_reads<-aggregate(df[,"x"],by=list(df[,"V12"]),FUN=sum)
+  df_uncol<-df[rep(row.names(df), df$x),]
+  median_length_numreads<-aggregate(df_uncol[,"V4"],by=list(df_uncol[,"V12"]),FUN=median)
+  mean_length_numreads<-aggregate(df_uncol[,"V4"],by=list(df_uncol[,"V12"]),FUN=mean)
+  
+  percent_long_seqs<-aggregate(df[,"V4"],by=list(df[,"V12"]),FUN=function(row){return(length(which(row>38))/length(row))})
+  percent_long_reads<-aggregate(df_uncol[,"V4"],by=list(df_uncol[,"V12"]),FUN=function(row){return(length(which(row>38))/length(row))})
+
+  merged<-data.frame(number_seqs$x,
+                   median_length$x,
+                   mean_length$x,
+                   percent_long_seqs$x,
+                   number_reads$x,
+                   median_length_numreads$x,
+                   mean_length_numreads$x,
+                   percent_long_reads$x)
+  colnames(merged)<-c("number_seqs","median_length","mean_length","percent_long_seqs","number_reads","median_length_numreads","mean_length_numreads","percent_long_reads")
+  rownames(merged)<-number_seqs$Group.1
+  return(merged)
+})
+
+
+merged_df<-motifdep_piRNA_precursors_data_summary[[1]]
+colnames(merged_df)<-paste0(names_agg[1],colnames(merged_df))
+for (i in seq(2,length(names_agg))){
+  df<-motifdep_piRNA_precursors_data_summary[[i]]
+  colnames(df)<-paste0(names_agg[i],colnames(df))
+  merged_df<-merge(merged_df,df,by=0,all=TRUE)
+  rownames(merged_df)<-merged_df$Row.names
+  merged_df$Row.names<-NULL
+}
+merged_df$rownames<-rownames(merged_df)
+
+
+ggplot(merged_df)+geom_histogram(aes(x=N2_EV_chrpercent_long_seqs))
+ggplot(merged_df)+geom_histogram(aes(x=N2_EV_chrpercent_long_reads))
+
+ggplot(merged_df)+geom_point(aes(x=N2_EV_chrnumber_seqs,y=N2_EV_chrpercent_long_seqs))
+ggplot(merged_df)+geom_point(aes(x=log2(N2_EV_chrnumber_reads),y=N2_EV_chrpercent_long_reads))
+
+
+#N2 EV
+
+merged_df_4plusseqs<-merged_df[which(merged_df$N2_EV_chrnumber_seqs>3),] #at least 4 sequences
+
+merged_df_4plusseqs$longbins<-cut(merged_df_4plusseqs$N2_EV_chrpercent_long_seqs,
+                                  breaks = seq(0,1,1/5))
+table(merged_df_4plusseqs$longbins)
+ggplot(merged_df_4plusseqs)+geom_violin(aes(x=longbins,y=N2_EV_npmedian_length),trim=FALSE)+
+  theme_classic()+
+  ylab("median length")+
+  xlab("fraction of precursors >38 nt on chromatin")+
+  geom_boxplot(aes(x=longbins,y=N2_EV_npmedian_length),width=0.1,outlier.shape = NA)+
+  ggtitle("N2 EV")
+#ggsave("np_medianlendist_forbinsof_chrlengthratios_numseqs_N2EV.pdf")
+
+ggplot(merged_df_4plusseqs)+geom_violin(aes(x=longbins,y=N2_EV_npmean_length),trim=FALSE)+
+  theme_classic()+
+  ylab("mean length")+
+  xlab("fraction of precursors >38 nt on chromatin")+
+  ggtitle("N2 EV")+
+  geom_boxplot(aes(x=longbins,y=N2_EV_npmean_length),width=0.1,outlier.shape = NA)+
+#ggsave("np_meanlendist_forbinsof_chrlengthratios_numseqs_N2EV.pdf")
+
+
+
+merged_df_10plusreads<-merged_df[which(merged_df$N2_EV_chrnumber_reads>9),] #at least 10 reads
+
+merged_df_10plusreads$longbins<-cut(merged_df_10plusreads$N2_EV_chrpercent_long_seqs,
+                                  breaks = seq(0,1,1/5))
+table(merged_df_10plusreads$longbins)
+ggplot(merged_df_10plusreads)+geom_violin(aes(x=longbins,y=N2_EV_npmedian_length),trim=FALSE)+
+  theme_classic()+
+  ylab("median length")+
+  xlab("fraction of precursors >38 nt on chromatin")+
+  geom_boxplot(aes(x=longbins,y=N2_EV_npmedian_length),width=0.1,outlier.shape = NA)+
+  ggtitle("N2 EV")
+#ggsave("np_medianlendist_forbinsof_chrlengthratios_numreads_N2EV.pdf")
+
+ggplot(merged_df_10plusreads)+geom_violin(aes(x=longbins,y=N2_EV_npmean_length),trim=FALSE)+
+  theme_classic()+
+  ylab("mean length")+
+  xlab("fraction of precursors >38 nt on chromatin")+
+  geom_boxplot(aes(x=longbins,y=N2_EV_npmean_length),width=0.1,outlier.shape = NA)+
+  ggtitle("N2 EV")
+#ggsave("np_meanlendist_forbinsof_chrlengthratios_numreads_N2EV.pdf")
+
+
+#N2 ints-11 RNAi
+
+merged_df_4plusseqs$longbins<-cut(merged_df_4plusseqs$N2_ints11_chrpercent_long_seqs,
+                                  breaks = seq(0,1,1/5))
+table(merged_df_4plusseqs$longbins)
+ggplot(merged_df_4plusseqs)+geom_violin(aes(x=longbins,y=N2_ints11_npmedian_length),trim=FALSE)+
+  theme_classic()+
+  ylab("median length")+
+  xlab("fraction of long precursors on chromatin")+
+  geom_boxplot(aes(x=longbins,y=N2_ints11_npmedian_length),width=0.1,outlier.shape = NA)+
+  ggtitle("N2 ints-11 RNAi")
+#ggsave("np_medianlendist_forbinsof_chrlengthratios_numseqs_N2ints11RNAi.pdf")
+
+ggplot(merged_df_4plusseqs)+geom_violin(aes(x=longbins,y=N2_ints11_npmean_length),trim=FALSE)+
+  theme_classic()+
+  ylab("mean length")+
+  xlab("fraction of precursors >38 nt on chromatin")+
+  geom_boxplot(aes(x=longbins,y=N2_ints11_npmean_length),width=0.1,outlier.shape = NA)+
+  ggtitle("N2 ints-11 RNAi")
+#ggsave("np_meanlendist_forbinsof_chrlengthratios_numseqs_N2ints11RNAi.pdf")
+
+
+
+merged_df_10plusreads<-merged_df[which(merged_df$N2_EV_chrnumber_reads>9),] #at least 10 reads
+
+merged_df_10plusreads$longbins<-cut(merged_df_10plusreads$N2_EV_chrpercent_long_seqs,
+                                  breaks = seq(0,1,1/5))
+table(merged_df_10plusreads$longbins)
+ggplot(merged_df_10plusreads)+geom_violin(aes(x=longbins,y=N2_ints11_npmedian_length),trim=FALSE)+
+  theme_classic()+
+  ylab("median length")+
+  xlab("fraction of precursors >38 nt on chromatin")+
+  geom_boxplot(aes(x=longbins,y=N2_ints11_npmedian_length),width=0.1,outlier.shape = NA)+
+  ggtitle("N2 ints-11 RNAi")
+#ggsave("np_medianlendist_forbinsof_chrlengthratios_numreads_N2ints11RNAi.pdf")
+
+ggplot(merged_df_10plusreads)+geom_violin(aes(x=longbins,y=N2_ints11_npmean_length),trim=FALSE)+
+  theme_classic()+
+  ylab("mean length")+
+  xlab("fraction of precursors >38 nt on chromatin")+
+  geom_boxplot(aes(x=longbins,y=N2_ints11_npmean_length),width=0.1,outlier.shape = NA)+
+  ggtitle("N2 ints-11 RNAi")
+#ggsave("np_meanlendist_forbinsof_chrlengthratios_numreads_N2ints11RNAi.pdf")
+
+
+
+#TFIIS EV
+
+merged_df_4plusseqs$longbins<-cut(merged_df_4plusseqs$tfiis_EV_chrpercent_long_seqs,
+                                  breaks = seq(0,1,1/5))
+table(merged_df_4plusseqs$longbins)
+ggplot(merged_df_4plusseqs)+geom_violin(aes(x=longbins,y=tfiis_EV_npmedian_length),trim=FALSE)+
+  theme_classic()+
+  ylab("median length")+
+  xlab("fraction of precursors >38 nt on chromatin")+
+  geom_boxplot(aes(x=longbins,y=tfiis_EV_npmedian_length),width=0.1,outlier.shape = NA)+
+  ggtitle("tfiis EV")
+#ggsave("np_medianlendist_forbinsof_chrlengthratios_numseqs_tfiisEV.pdf")
+
+ggplot(merged_df_4plusseqs)+geom_violin(aes(x=longbins,y=tfiis_EV_npmean_length),trim=FALSE)+
+  theme_classic()+
+  ylab("mean length")+
+  xlab("fraction of precursors >38 nt on chromatin")+
+  geom_boxplot(aes(x=longbins,y=N2_EV_npmean_length),width=0.1,outlier.shape = NA)+
+  ggtitle("tfiis EV")
+#ggsave("np_meanlendist_forbinsof_chrlengthratios_numseqs_tfiisEV.pdf")
+
+merged_df_10plusreads$longbins<-cut(merged_df_10plusreads$tfiis_EV_chrpercent_long_seqs,
+                                  breaks = seq(0,1,1/5))
+table(merged_df_10plusreads$longbins)
+ggplot(merged_df_10plusreads)+geom_violin(aes(x=longbins,y=tfiis_EV_npmedian_length),trim=FALSE)+
+  theme_classic()+
+  ylab("median length")+
+  xlab("fraction of precursors >38 nt on chromatin")+
+  geom_boxplot(aes(x=longbins,y=tfiis_EV_npmedian_length),width=0.1,outlier.shape = NA)+
+  ggtitle("tfiis EV")
+#ggsave("np_medianlendist_forbinsof_chrlengthratios_numreads_tfiisEV.pdf")
+
+ggplot(merged_df_10plusreads)+geom_violin(aes(x=longbins,y=tfiis_EV_npmean_length),trim=FALSE)+
+  theme_classic()+
+  ylab("mean length")+
+  xlab("fraction of precursors >38 nt on chromatin")+
+  geom_boxplot(aes(x=longbins,y=tfiis_EV_npmean_length),width=0.1,outlier.shape = NA)+
+  ggtitle("tfiis EV")
+#ggsave("np_meanlendist_forbinsof_chrlengthratios_numreads_tfiisEV.pdf")
+
+
+#tfiis ints-11 RNAi
+
+merged_df_4plusseqs$longbins<-cut(merged_df_4plusseqs$tfiis_ints11_chrpercent_long_seqs,
+                                  breaks = seq(0,1,1/5))
+table(merged_df_4plusseqs$longbins)
+ggplot(merged_df_4plusseqs)+geom_violin(aes(x=longbins,y=tfiis_ints11_npmedian_length),trim=FALSE)+
+  theme_classic()+
+  ylab("median length")+
+  xlab("fraction of long precursors on chromatin")+
+  geom_boxplot(aes(x=longbins,y=tfiis_ints11_npmedian_length),width=0.1,outlier.shape = NA)+
+  ggtitle("tfiis ints-11 RNAi")
+#ggsave("np_medianlendist_forbinsof_chrlengthratios_numseqs_tfiisints11RNAi.pdf")
+
+ggplot(merged_df_4plusseqs)+geom_violin(aes(x=longbins,y=tfiis_ints11_npmean_length),trim=FALSE)+
+  theme_classic()+
+  ylab("mean length")+
+  xlab("fraction of precursors >38 nt on chromatin")+
+  geom_boxplot(aes(x=longbins,y=tfiis_ints11_npmean_length),width=0.1,outlier.shape = NA)+
+  ggtitle("tfiis ints-11 RNAi")
+#ggsave("np_meanlendist_forbinsof_chrlengthratios_numseqs_tfiisints11RNAi.pdf")
+
+
+
+merged_df_10plusreads<-merged_df[which(merged_df$tfiis_EV_chrnumber_reads>9),] #at least 10 reads
+
+merged_df_10plusreads$longbins<-cut(merged_df_10plusreads$tfiis_EV_chrpercent_long_seqs,
+                                  breaks = seq(0,1,1/5))
+table(merged_df_10plusreads$longbins)
+ggplot(merged_df_10plusreads)+geom_violin(aes(x=longbins,y=tfiis_ints11_npmedian_length),trim=FALSE)+
+  theme_classic()+
+  ylab("median length")+
+  xlab("fraction of precursors >38 nt on chromatin")+
+  geom_boxplot(aes(x=longbins,y=tfiis_ints11_npmedian_length),width=0.1,outlier.shape = NA)+
+  ggtitle("tfiis ints-11 RNAi")
+#ggsave("np_medianlendist_forbinsof_chrlengthratios_numreads_tfiisints11RNAi.pdf")
+
+ggplot(merged_df_10plusreads)+geom_violin(aes(x=longbins,y=tfiis_ints11_npmean_length),trim=FALSE)+
+  theme_classic()+
+  ylab("mean length")+
+  xlab("fraction of precursors >38 nt on chromatin")+
+  geom_boxplot(aes(x=longbins,y=tfiis_ints11_npmean_length),width=0.1,outlier.shape = NA)+
+  ggtitle("tfiis ints-11 RNAi")
+#ggsave("np_meanlendist_forbinsof_chrlengthratios_numreads_tfiisints11RNAi.pdf")
+
+
+```
+
+
+
+```{r abundance changes to NP precursors according to ratios of chr bound length}
+
+
+chrlength_ratios<-data.frame(cbind(rownames(merged_df_4plusseqs),as.character(merged_df_4plusseqs[,"longbins"])))
+colnames(chrlength_ratios)<-c("locus","ratio_bin")
+chrlength_ratios<-chrlength_ratios[-which(is.na(chrlength_ratios$ratio_bin)),]
+write.table(chrlength_ratios,file="fraction_of_chrbound_precursors_longerThan38Nts.txt",quote = FALSE)
+
+
+```
+

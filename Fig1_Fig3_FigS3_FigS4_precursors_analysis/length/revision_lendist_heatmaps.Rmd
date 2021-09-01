@@ -1,0 +1,217 @@
+---
+title: "revision_lenHeatmap"
+output: html_document
+---
+
+```{r load data}
+
+library(ggplot2)
+library(reshape2)
+library(scales)
+
+setwd("/Users/ab6415/Documents/Work_laptop_stuff/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig1_Fig3_FigS3_FigS4_precursors_analysis/length/")
+
+piRNA_counts_wholeanimal_E1 <- list.files(path="../counts/wholeworm/",
+    pattern="*pis"); piRNA_counts_wholeanimal_E1<-paste0("../counts/wholeworm/",piRNA_counts_wholeanimal_E1,sep="")
+piRNA_counts_wholeanimal_E1_longreads <- list.files(path="../counts/wholeworm_longreads/",
+    pattern="*pis"); piRNA_counts_wholeanimal_E1_longreads<-paste0("../counts/wholeworm_longreads/",piRNA_counts_wholeanimal_E1_longreads,sep="")
+piRNA_counts_germnuclei_total <- list.files(path="../counts/germnuclei_total/",
+    pattern="*pis"); piRNA_counts_germnuclei_total<-paste0("../counts/germnuclei_total/",piRNA_counts_germnuclei_total,sep="")
+piRNA_counts_germnuclei_fractionation <- list.files(path="../counts/germnuclei_fractionation_rep1/",
+    pattern="*pis"); piRNA_counts_germnuclei_fractionation<-paste0("../counts/germnuclei_fractionation_rep1/",piRNA_counts_germnuclei_fractionation,sep="")
+piRNA_counts_germnuclei_fractionation_rep2 <- list.files(path="../counts/germnuclei_fractionation_rep2/",
+    pattern="*pis"); piRNA_counts_germnuclei_fractionation_rep2<-paste0("../counts/germnuclei_fractionation_rep2/",piRNA_counts_germnuclei_fractionation_rep2,sep="")
+
+
+piRNA_counts_filenames<-c(piRNA_counts_wholeanimal_E1,piRNA_counts_wholeanimal_E1_longreads,piRNA_counts_germnuclei_total,piRNA_counts_germnuclei_fractionation,piRNA_counts_germnuclei_fractionation_rep2)
+piRNA_counts_filenames<-piRNA_counts_filenames[c(1:13,19:21,14:18,27:30,22,23,25,26)]
+
+names <-c("wholeworm_EV_col1","wholeworm_ints11_col1","wholeworm_EV_col2","wholeworm_ints11_col2","wholeworm_EV_96h","wholeworm_ints11_96h","wholeworm_EV_col1_longreads","wholeworm_ints11_col1_longreads","wholeworm_ints11_col2_longreads","germnuclei_total_N2_EV","germnuclei_total_N2_ints11","germnuclei_total_TFIIS_EV","germnuclei_total_TFIIS_ints11","germnuclei_NP_N2_EV","germnuclei_NP_N2_ints11","germnuclei_NP_TFIIS_EV","germnuclei_NP_TFIIS_ints11","germnuclei_CHR_N2_EV","germnuclei_CHR_N2_ints11","germnuclei_CHR_TFIIS_EV","germnuclei_CHR_TFIIS_ints11","germnuclei_rep2_NP_N2_EV","germnuclei_rep2_NP_N2_ints11","germnuclei_rep2_NP_TFIIS_EV","germnuclei_rep2_NP_TFIIS_ints11","germnuclei_rep2_CHR_N2_EV","germnuclei_rep2_CHR_N2_ints11","germnuclei_rep2_CHR_TFIIS_EV","germnuclei_rep2_CHR_TFIIS_ints11")
+
+piRNA_counts_filenames
+names         
+
+piRNA_counts <- lapply(piRNA_counts_filenames,function(i){
+  read.csv(paste(i,sep=""), header=FALSE,sep="\t")
+})
+
+
+piRNA_counts_precfiltered <- lapply(piRNA_counts, function(df){
+ df$plus_d <- df$V10-df$V2
+ df$minus_d <- df$V3-df$V11
+ df_plus<-df[which(df$plus_d==2 & df$V8=="+"),]
+ df_minus<-df[which(df$minus_d==(2) & df$V8=="-"),]
+ return(rbind(df_plus,df_minus))
+})
+
+motifdep_piRNA_precursors<-lapply(piRNA_counts_precfiltered,function(df){return(df[c(grep("^21UR-",df$V12),grep("^piRNA_type_1",df$V12)),])})
+motifind_piRNA_precursors<-lapply(piRNA_counts_precfiltered,function(df){return(df[grep("^piRNA_type_2",df$V12),])})
+
+N2_EV_np<-rbind(motifdep_piRNA_precursors[[14]],motifdep_piRNA_precursors[[22]])
+N2_EV_np<-aggregate(N2_EV_np[,"V6"],by=N2_EV_np[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+N2_ints11_np<-rbind(motifdep_piRNA_precursors[[15]],motifdep_piRNA_precursors[[23]])
+N2_ints11_np<-aggregate(N2_ints11_np[,"V6"],by=N2_ints11_np[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+tfiis_EV_np<-rbind(motifdep_piRNA_precursors[[16]],motifdep_piRNA_precursors[[24]])
+tfiis_EV_np<-aggregate(tfiis_EV_np[,"V6"],by=tfiis_EV_np[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+tfiis_ints11_np<-rbind(motifdep_piRNA_precursors[[17]],motifdep_piRNA_precursors[[25]])
+tfiis_ints11_np<-aggregate(tfiis_ints11_np[,"V6"],by=tfiis_ints11_np[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+
+N2_EV_chr<-rbind(motifdep_piRNA_precursors[[18]],motifdep_piRNA_precursors[[26]])
+N2_EV_chr<-aggregate(N2_EV_chr[,"V6"],by=N2_EV_chr[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+N2_ints11_chr<-rbind(motifdep_piRNA_precursors[[19]],motifdep_piRNA_precursors[[27]])
+N2_ints11_chr<-aggregate(N2_ints11_chr[,"V6"],by=N2_ints11_chr[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+tfiis_EV_chr<-rbind(motifdep_piRNA_precursors[[20]],motifdep_piRNA_precursors[[28]])
+tfiis_EV_chr<-aggregate(tfiis_EV_chr[,"V6"],by=tfiis_EV_chr[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+tfiis_ints11_chr<-rbind(motifdep_piRNA_precursors[[21]],motifdep_piRNA_precursors[[29]])
+tfiis_ints11_chr<-aggregate(tfiis_ints11_chr[,"V6"],by=tfiis_ints11_chr[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+
+motifdep_piRNA_precursors_agg<-list(N2_EV_np,N2_ints11_np,tfiis_EV_np,tfiis_ints11_np,
+                                    N2_EV_chr,N2_ints11_chr,tfiis_EV_chr,tfiis_ints11_chr)
+
+names_agg<-c("N2_EV_np","N2_ints11_np","tfiis_EV_np","tfiis_ints11_np",
+             "N2_EV_chr","N2_ints11_chr","tfiis_EV_chr","tfiis_ints11_chr")
+
+```
+
+
+```{r heatmaps}
+
+
+
+build_lenmatrix_numreads<-function(df){
+  loci<-as.character(unique(df$V12))
+  len_matrix<-matrix(data=0, nrow = length(loci), ncol = 75)
+  rownames(len_matrix)<-loci
+  colnames(len_matrix)<-1:75
+  for (row in seq(nrow(df))){
+    locus<-as.character(df[row,"V12"])
+    len<-df[row,"V4"]
+    numreads<-df[row,"x"]
+    len_matrix[locus,len]<-numreads
+  }
+  return(len_matrix[,18:75])
+}
+
+build_lenmatrix_uniqueseqs<-function(df){
+  loci<-as.character(unique(df$V12))
+  len_matrix<-matrix(data=0, nrow = length(loci), ncol = 75)
+  rownames(len_matrix)<-loci
+  colnames(len_matrix)<-1:75
+  for (row in seq(nrow(df))){
+    locus<-as.character(df[row,"V12"])
+    len<-df[row,"V4"]
+    len_matrix[locus,len]<-1
+  }
+  return(len_matrix[,18:75])
+}
+
+
+
+len_matrix_numreads<-lapply(motifdep_piRNA_precursors_agg,FUN=build_lenmatrix_numreads)
+len_matrix_uniqueseqs<-lapply(motifdep_piRNA_precursors_agg,FUN=build_lenmatrix_uniqueseqs)
+
+for (i in seq(length(len_matrix_numreads))){
+
+data<-len_matrix_uniqueseqs[[i]]
+data<-data[order(apply(data,MARGIN=1,FUN=sum),decreasing = FALSE),]
+
+melted_data<-melt(data)
+melted_data$Var1<-factor(melted_data$Var1,levels=rownames(data))
+
+print(ggplot(melted_data, aes(Var2,Var1, fill=value)) + geom_raster() +
+  theme(axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())+
+  ylab("motif-dependent piRNA loci")+xlab("precursor length")+
+    scale_fill_distiller(palette = "Greys")+
+  ggtitle(names_agg[i]))
+  ggsave(paste(names_agg[i],"_lendist_heatmap.pdf",sep=""))
+
+
+
+data<-len_matrix_numreads[[i]]
+data<-data[order(apply(data,MARGIN=1,FUN=sum),decreasing = FALSE),]
+
+melted_data<-melt(data)
+melted_data$Var1<-factor(melted_data$Var1,levels=rownames(data))
+
+print(ggplot(melted_data, aes(Var2,Var1, fill=value)) + geom_raster() +
+  theme(axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())+
+  scale_fill_gradientn(colors=c("white","red","blue","black"),values=scales::rescale(c(0,1,5,10,50,1000,100000)))+
+  ylab("motif-dependent piRNA loci")+xlab("precursor length")+
+  ggtitle(names_agg[i]))
+
+}
+
+
+```
+
+
+
+
+
+```{r pausing strength bins}
+
+pausing_strength_data<-read.table("../../Reference_pausing_signal_strength/all_pis_typeI_pausingscores.bed",header=TRUE)
+pausing_strength_data<-pausing_strength_data[,c(4,10:12)]
+pausing_strength_data$V4<-as.character(pausing_strength_data$V4)
+
+
+for (i in seq(length(len_matrix_numreads))){
+
+data<-len_matrix_uniqueseqs[[i]]
+data<-data[order(apply(data,MARGIN=1,FUN=sum),decreasing = FALSE),]
+
+melted_data<-melt(data)
+melted_data$Var1<-as.character(melted_data$Var1)
+melted_data<-merge(melted_data,pausing_strength_data,
+                   by.x="Var1",by.y="V4")
+
+melted_data$Var1<-factor(melted_data$Var1,levels=rownames(data))
+
+for (bin in unique(melted_data$tm_downstream_bins)){
+  melted_data_subset<-melted_data[which(melted_data$tm_downstream_bins==bin),]
+  print(ggplot(melted_data_subset, aes(Var2,Var1, fill=value)) + geom_raster() +
+  theme(axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())+
+  ylab("motif-dependent piRNA loci")+xlab("precursor length")+
+    scale_fill_distiller(palette="Greys")+
+  ggtitle(paste(names_agg[i],bin,sep="-")))
+  
+  ggsave(paste(paste(names_agg[i],bin,sep="-"),"_uniqueseqs.pdf",sep=""))
+}
+
+# data<-len_matrix_numreads[[i]]
+# data<-data[order(apply(data,MARGIN=1,FUN=sum),decreasing = FALSE),]
+# 
+# melted_data<-melt(data)
+# melted_data$Var1<-as.character(melted_data$Var1)
+# melted_data<-merge(melted_data,pausing_strength_data,
+#                    by.x="Var1",by.y="V4")
+# 
+# melted_data$Var1<-factor(melted_data$Var1,levels=rownames(data))
+
+# for (bin in unique(melted_data$tm_downstream_bins)){
+#   melted_data_subset<-melted_data[which(melted_data$tm_downstream_bins==bin),]
+#   print(ggplot(melted_data_subset, aes(Var2,Var1, fill=value)) + geom_raster() +
+#   theme(axis.text.y=element_blank(),
+#         axis.ticks.y=element_blank())+
+#   scale_fill_gradientn(colors=c("white","red","blue","black"),values=scales::rescale(c(0,1,5,10,50,1000,100000)))+
+#   ylab("motif-dependent piRNA loci")+xlab("precursor length")+
+#     ggtitle(paste(names_agg[i],bin,sep="-"))+
+#   ggtitle(paste(names_agg[i],bin,sep="-")))
+#   
+#   ggsave(paste(paste(names_agg[i],bin,sep="-"),"_numreads.pdf",sep=""))
+
+#   }
+
+
+   }
+
+
+
+
+
+
+```
+

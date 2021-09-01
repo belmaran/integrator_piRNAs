@@ -1,0 +1,67 @@
+---
+title: "scRNA initiation landscape.Rmd"
+author: "Toni Beltran"
+date: "01/11/2019"
+output: html_document
+---
+
+Here I plot the distribution of 5' ends of precursors relative to 21U-RNA reads - recovering the expected peak at -2nt from the 21U-RNA site.
+
+```{r load scRNA at pis}
+
+library(ggplot2)
+setwd("/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig1_Fig3_precursors_analysis/initiation_landscape/")
+
+pis_with_cagesignal<-read.table("/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Reference_annotations/typeI_withCAGEsignal")
+pis_with_cagesignal<-pis_with_cagesignal$V1
+
+piRNA_counts_germnuclei_fractionation_rep2 <- list.files(path="../counts/germnuclei_fractionation_rep2/",
+    pattern="*pis"); piRNA_counts_germnuclei_fractionation_rep2<-paste0("../counts/germnuclei_fractionation_rep2/",piRNA_counts_germnuclei_fractionation_rep2,sep="")
+
+
+piRNA_counts_filenames<-piRNA_counts_germnuclei_fractionation_rep2[c(6:9,1,2,4,5)]
+names <-c("N2_EV_np","N2_ints11_np","TFIIS_EV_np","TFIIS_ints11_np","N2_EV_chr","N2_ints11_chr","TFIIS_EV_chr","TFIIS_ints11_chr")
+
+
+piRNAprec_alignments <- lapply(piRNA_counts_filenames,function(i){
+  read.csv(i, header=FALSE,sep="\t")
+})
+
+dfdist_all<-data.frame()
+
+for (i in seq(length(piRNAprec_alignments))){
+ df<-piRNAprec_alignments[[i]]
+ df<-df[c(grep("^21UR-",df$V12),grep("^piRNA_type_1",df$V12)),]
+ df$plus_d <- df$V10-df$V2
+ df$minus_d <- df$V3-df$V11
+ df$distance<-df$plus_d
+ df$distance[which(df$V8=="-")]<-df$minus_d[which(df$V8=="-")]
+ df$distance<-df$distance*(-1)
+ df<-df[which(df$distance<31 & df$distance>(-11)),]
+ 
+ if (i %in% 1:4){fraction<-"np"}else{ fraction<-"chr"}
+ df$fraction<-rep(fraction,nrow(df))
+ 
+ dfdist<-df[,c("distance","V12","fraction")]
+ print(ggplot(dfdist)+geom_histogram(aes(x=distance),breaks=seq(-10,30))+theme_classic()+ggtitle(names[i]))
+
+ dfdist_all<-rbind(dfdist_all,dfdist)
+ 
+ dfdist<-unique(dfdist)
+ #print(ggplot(dfdist)+geom_histogram(aes(x=distance),breaks=seq(-10,30))+theme_classic()+ggtitle(names[i]))
+ 
+ 
+}
+
+ggplot(dfdist_all)+geom_histogram(aes(x=distance),breaks=seq(-10,30))+theme_classic()+ggtitle("all libraries combined")
+ggsave("scRNA_initiation_landscape.pdf")
+ggplot(dfdist_all)+geom_histogram(aes(x=distance,fill=factor(fraction)),breaks=seq(-10,30))+theme_classic()+ggtitle("all libraries, by fraction")
+ggsave("scRNA_initiation_landscape_byfraction.pdf")
+
+ggplot(dfdist_all[which(dfdist_all$V12 %in% pis_with_cagesignal),])+geom_histogram(aes(x=distance),breaks=seq(-10,30))+theme_classic()+ggtitle("all libraries combined, CAGE detected pis")
+ggsave("CAGEdetected_pis_scRNA_initiation_landscape.pdf")
+ggplot(dfdist_all[which(dfdist_all$V12 %in% pis_with_cagesignal),])+geom_histogram(aes(x=distance,fill=fraction),breaks=seq(-10,30))+theme_classic()+ggtitle("all libraries combined, CAGE detected pis")
+ggsave("CAGEdetected_pis_scRNA_initiation_landscape_byfraction.pdf")
+
+```
+

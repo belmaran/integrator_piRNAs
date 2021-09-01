@@ -1,0 +1,406 @@
+---
+title: "precursor_abundance_wholeworm"
+author: "Toni Beltran"
+date: "17/08/2019"
+output: html_document
+---
+
+```{r piRNA precursor count data}
+
+library(ggplot2)
+
+setwd("/Users/ab6415/Documents/Work_laptop_stuff/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig1_Fig3_FigS3_FigS4_precursors_analysis/abundance/")
+
+piRNA_counts_wholeanimal_E1 <- list.files(path="../counts/wholeworm/",
+    pattern="*pis"); piRNA_counts_wholeanimal_E1<-paste0("../counts/wholeworm/",piRNA_counts_wholeanimal_E1,sep="")
+piRNA_counts_germnuclei_total <- list.files(path="../counts/germnuclei_total/",
+    pattern="*pis"); piRNA_counts_germnuclei_total<-paste0("../counts/germnuclei_total/",piRNA_counts_germnuclei_total,sep="")
+piRNA_counts_germnuclei_fractionation <- list.files(path="../counts/germnuclei_fractionation_rep1/",
+    pattern="*pis"); piRNA_counts_germnuclei_fractionation<-paste0("../counts/germnuclei_fractionation_rep1/",piRNA_counts_germnuclei_fractionation,sep="")
+piRNA_counts_germnuclei_fractionation_rep2 <- list.files(path="../counts/germnuclei_fractionation_rep2/",
+    pattern="*pis"); piRNA_counts_germnuclei_fractionation_rep2<-paste0("../counts/germnuclei_fractionation_rep2/",piRNA_counts_germnuclei_fractionation_rep2,sep="")
+
+
+piRNA_counts_filenames<-c(piRNA_counts_wholeanimal_E1,piRNA_counts_germnuclei_total,piRNA_counts_germnuclei_fractionation,piRNA_counts_germnuclei_fractionation_rep2)
+piRNA_counts_filenames<-piRNA_counts_filenames[c(1:10,16:18,11:15,24:27,19,20,22,23)]
+
+names <-c("wholeworm_EV_col1","wholeworm_ints11_col1","wholeworm_EV_col2","wholeworm_ints11_col2","wholeworm_EV_96h","wholeworm_ints11_96h",
+          "germnuclei_total_N2_EV","germnuclei_total_N2_ints11","germnuclei_total_TFIIS_EV","germnuclei_total_TFIIS_ints11",
+          "germnuclei_NP_N2_EV","germnuclei_NP_N2_ints11","germnuclei_NP_TFIIS_EV","germnuclei_NP_TFIIS_ints11",
+          "germnuclei_CHR_N2_EV","germnuclei_CHR_N2_ints11","germnuclei_CHR_TFIIS_EV","germnuclei_CHR_TFIIS_ints11",
+          "germnuclei_rep2_NP_N2_EV","germnuclei_rep2_NP_N2_ints11","germnuclei_rep2_NP_TFIIS_EV","germnuclei_rep2_NP_TFIIS_ints11",
+          "germnuclei_rep2_CHR_N2_EV","germnuclei_rep2_CHR_N2_ints11","germnuclei_rep2_CHR_TFIIS_EV","germnuclei_rep2_CHR_TFIIS_ints11")
+
+piRNA_counts_filenames
+names   
+
+piRNA_counts <- lapply(piRNA_counts_filenames,function(i){
+  read.csv(paste(i,sep=""), header=FALSE,sep="\t")
+})
+
+piRNA_counts_precfiltered <- lapply(piRNA_counts, function(df){
+ df$plus_d <- df$V10-df$V2
+ df$minus_d <- df$V3-df$V11
+ df_plus<-df[which(df$plus_d==2 & df$V8=="+"),]
+ df_minus<-df[which(df$minus_d==(2) & df$V8=="-"),]
+ return(rbind(df_plus,df_minus))
+})
+
+#total piRNA precursor counts in each library
+piRNA_preccounts_total<-lapply(piRNA_counts_precfiltered,function(df){return(sum(df$V6))})
+
+motifdep_piRNA_precursors<-lapply(piRNA_counts_precfiltered,function(df){return(df[c(grep("^21UR-",df$V12),grep("^piRNA_type_1",df$V12)),])})
+motifind_piRNA_precursors<-lapply(piRNA_counts_precfiltered,function(df){return(df[grep("^piRNA_type_2",df$V12),])})
+
+
+#total piRNA precursor counts aggregated by locus
+piRNA_preccounts_agg<-lapply(piRNA_counts_precfiltered,function(df){
+  return(aggregate(x=df$V6,by=list(df$V12),FUN=sum))
+})
+for (df in 1:length(piRNA_preccounts_agg)){
+  colnames(piRNA_preccounts_agg[[df]])[2] <- names[df]
+}
+
+DF <- piRNA_preccounts_agg[[1]]
+for ( .df in piRNA_preccounts_agg) {
+  DF <-merge(DF,.df,by.x=1, by.y=1, all=TRUE)
+}
+
+colnames(DF)
+DF<-DF[order(DF$Group.1),]
+
+nrow(DF)
+rownames(DF)<-DF$Group.1
+DF$Group.1<-NULL
+DF$wholeworm_EV_col1.x<-NULL
+
+DF[is.na(DF)]<-0
+
+motif_dependent_piRNAs_agg<-DF[c(grep("^21UR-",rownames(DF)),grep("piRNA_type_1",rownames(DF))),]
+motif_independent_piRNAs_agg<-DF[grep("piRNA_type_2",rownames(DF)),]
+
+
+totalcounts_motifdep_piRNAs<-unlist(lapply(motifdep_piRNA_precursors,function(df){return(sum(df$V6))}))
+totalseqs_motifdep_piRNAs<-unlist(lapply(motifdep_piRNA_precursors,function(df){return(nrow(df))}))
+
+totalcounts_motifind_piRNAs<-unlist(lapply(motifind_piRNA_precursors,function(df){return(sum(df$V6))}))
+totalseqs_motifind_piRNAs<-unlist(lapply(motifind_piRNA_precursors,function(df){return(nrow(df))}))
+
+```
+
+Here I estimate library sizes by collecting reads mapping to WB tss (Chen et. al. 2013).
+
+```{r total library size estimated as reads mapping to WB tss (Chen et al., 2013)}
+
+tss_counts_wholeanimal_E1 <- list.files(path="../counts/wholeworm/tss_reads/",
+    pattern="*WBtss"); tss_counts_wholeanimal_E1<-paste0("../counts/wholeworm/tss_reads/",tss_counts_wholeanimal_E1,sep="")
+tss_counts_germnuclei_total <- list.files(path="../counts/germnuclei_total/tss_reads/",
+    pattern="*WBtss"); tss_counts_germnuclei_total<-paste0("../counts/germnuclei_total/tss_reads/",tss_counts_germnuclei_total,sep="")
+tss_counts_germnuclei_fractionation <- list.files(path="../counts/germnuclei_fractionation_rep1/tss_reads/",
+    pattern="*WBtss"); tss_counts_germnuclei_fractionation<-paste0("../counts/germnuclei_fractionation_rep1/tss_reads/",tss_counts_germnuclei_fractionation,sep="")
+tss_counts_germnuclei_fractionation_rep2 <- list.files(path="../counts/germnuclei_fractionation_rep2/tss_reads/",
+    pattern="*WBtss"); tss_counts_germnuclei_fractionation_rep2<-paste0("../counts/germnuclei_fractionation_rep2/tss_reads/",tss_counts_germnuclei_fractionation_rep2,sep="")
+
+
+tss_counts_filenames<-c(tss_counts_wholeanimal_E1,tss_counts_germnuclei_total,tss_counts_germnuclei_fractionation,tss_counts_germnuclei_fractionation_rep2)
+tss_counts_filenames<-tss_counts_filenames[c(1:10,16:18,11:15,24:27,19,20,22,23)]
+tss_counts <- lapply(tss_counts_filenames,function(i){
+  read.csv(paste(i,sep=""), header=FALSE,sep="\t")
+})
+
+tss_counts_no22Gs<-lapply(tss_counts,function(df){return(df[-which(df$V4==22 & df$V5=="G"),])})
+
+
+#total tss  counts in each library
+tss_counts_total<-unlist(lapply(tss_counts,function(df){return(sum(df$V6))}))
+tss_seqs_total<-unlist(lapply(tss_counts,function(df){return(nrow(df))}))
+
+tss_counts_total_no22Gs<-unlist(lapply(tss_counts_no22Gs,function(df){return(sum(df$V6))}))
+tss_seqs_total_no22Gs<-unlist(lapply(tss_counts_no22Gs,function(df){return(nrow(df))}))
+
+
+
+```
+
+# Motif dependent piRNAs
+
+Here I normalize the total piRNA counts using the library sizes above, and calculate the normalized total piRNA abundance for all samples.
+
+```{r motif dependent piRNAs}
+
+#ggplot geom_col
+norm_totalcounts<-data.frame(total_norm=totalcounts_motifdep_piRNAs/tss_counts_total*1e6,
+                             names=factor(c(names),levels=names))
+norm_totalcounts$experiment<-c(rep("whole animal E1",6),rep("germ nuclei total",4),rep("germ nuclei NP",4),rep("germ nuclei CHR",4),rep("germ nuclei NP rep 2",4),rep("germ nuclei CHR rep 2",4))
+norm_totalcounts$condition<-c(rep(c("EV","ints-11 RNAi"),13))
+norm_totalcounts$genotype<-c(rep("N2",6),rep(c("N2","N2","TFIIS","TFIIS"),5))
+
+ggplot(norm_totalcounts[which(norm_totalcounts$genotype=="N2"),])+
+  geom_col(aes(y=total_norm,x=names,fill=condition,group=experiment),position="dodge")+
+  scale_fill_brewer(palette="Purples",direction=-1) +
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("normalized_total_piRNAprecursor_content.pdf")
+
+
+norm_totalcounts$total_norm_scaled_to_EV<-c(1,912766.93/1076542.91,
+                                            1,387920.56/681202.26,
+                                            1,681688.21/835373.85,
+                                            1,213057.93/242371.13,216540.91/242371.13,29807.75/242371.13,
+                                            1,297900.40/495252.62,68770.85/495252.62,52827.33/495252.62,
+                                            1,55880.66/212165.61,170489.67/212165.61,35184.60/212165.61,
+                                            1, 78598.09/81857.82, 57013.43/81857.82, 149256.47/81857.82,
+                                            1, 160739.35/390886.78, 228903.42/390886.78, 214757.38/390886.78)
+
+ggplot(norm_totalcounts)+
+  geom_col(aes(y=total_norm_scaled_to_EV,x=names,fill=condition,group=experiment))+
+  scale_fill_brewer(palette="Purples",direction=-1)+
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("normalized_total_piRNAprecursor_content_scaled_to_EV.pdf")
+
+
+EV_mean<-mean(norm_totalcounts[which(norm_totalcounts$cond=="EV" & norm_totalcounts$genotype=="N2"),"total_norm_scaled_to_EV"])
+ints11_mean<-mean(norm_totalcounts[which(norm_totalcounts$cond=="ints-11 RNAi" & norm_totalcounts$genotype=="N2"),"total_norm_scaled_to_EV"])
+
+EV_sd<-sd(norm_totalcounts[which(norm_totalcounts$cond=="EV" & norm_totalcounts$genotype=="N2"),"total_norm_scaled_to_EV"])
+ints11_sd<-sd(norm_totalcounts[which(norm_totalcounts$cond=="ints-11 RNAi" & norm_totalcounts$genotype=="N2"),"total_norm_scaled_to_EV"])
+
+EV_se<-EV_sd/sqrt(length(norm_totalcounts[which(norm_totalcounts$cond=="EV" & norm_totalcounts$genotype=="N2"),"total_norm_scaled_to_EV"]))
+ints11_se<-ints11_sd/sqrt(length(norm_totalcounts[which(norm_totalcounts$cond=="ints-11 RNAi" & norm_totalcounts$genotype=="N2"),"total_norm_scaled_to_EV"]))
+
+df_errorbars<-data.frame(mean=c(EV_mean,ints11_mean),se=c(EV_se,ints11_se),cond=c("EV","ints-11 RNAi"))
+#Error bars represent standard error of the mean
+ggplot(df_errorbars, aes(x=cond, y=mean,fill=cond)) + 
+    geom_bar(position=position_dodge(), stat="identity") +
+    geom_errorbar(aes(ymin=mean-se, ymax=mean+se),
+                  width=.2,                    # Width of the error bars
+                  position=position_dodge(.9))+
+  theme_classic()+
+  ylab("total motif dependent piRNA precursor abundance relative to EV")
+ggsave("EV_vs_ints11RNAi_piRNAprecabundance_combined_mean_SE_motifdependent.pdf")
+
+```
+
+
+Here I normalize the piRNA counts data using the total library sizes estimated above, and plot the fold change distributions.
+
+```{r motif dependent piRNAs, fc distributions}
+
+motifdep_precursors_tssnorm<-t(t(motif_dependent_piRNAs_agg)/tss_counts_total*1e6)
+motifind_precursors_tssnorm<-t(t(motif_independent_piRNAs_agg)/tss_counts_total*1e6)
+
+colnames(motifdep_precursors_tssnorm)
+colnames(motifind_precursors_tssnorm)
+
+chbound_scRNAcounts_data<-rbind(motifdep_precursors_tssnorm[,c(15:18,23:26)],
+                             motifind_precursors_tssnorm[,c(15:18,23:26)])
+colnames(chbound_scRNAcounts_data)<-c("N2_EV_1","N2_ints11RNAi_1","TFIIS_EV_1","TFIIS_ints11RNAi_1","N2_EV_2","N2_ints11RNAi_2","TFIIS_EV_2","TFIIS_ints11RNAi_2")
+write.table(chbound_scRNAcounts_data,file="chbound_scRNA_counts_typeI_and_typeIIpis.txt")
+
+plot(log2(motifdep_precursors_tssnorm[,24]*0.5+motifdep_precursors_tssnorm[,23]*0.5+1),log2(motifdep_precursors_tssnorm[,24]+1)-log2(motifdep_precursors_tssnorm[,23]+1))
+abline(h=0,col="red",type="dashed")
+
+
+log2_foldchange_meanthr<-function(df,i1,i2,lognormcount_thr){
+   df<-df[which(log2((df[,i1]+df[,i2])/2+1)>lognormcount_thr),]
+   print(wilcox.test(df[,i1],df[,i2],paired = TRUE,alternative = "two.sided"))
+   return(log2(df[,i2]+1)-log2(df[,i1]+1))
+ }
+
+lognormcount_thr=2.32
+
+w72_ints11=log2_foldchange_meanthr(motifdep_precursors_tssnorm,1,2,lognormcount_thr)
+w72_ints11_2=log2_foldchange_meanthr(motifdep_precursors_tssnorm,3,4,lognormcount_thr)
+w96_ints11=log2_foldchange_meanthr(motifdep_precursors_tssnorm,5,6,lognormcount_thr)
+ints11_nuclei=log2_foldchange_meanthr(motifdep_precursors_tssnorm,7,8,lognormcount_thr)
+TFIIS_nuclei=log2_foldchange_meanthr(motifdep_precursors_tssnorm,7,9,lognormcount_thr)
+TFIIS_ints11_nuclei=log2_foldchange_meanthr(motifdep_precursors_tssnorm,7,10,lognormcount_thr)
+ints11_NP=log2_foldchange_meanthr(motifdep_precursors_tssnorm,11,12,lognormcount_thr)
+TFIIS_NP=log2_foldchange_meanthr(motifdep_precursors_tssnorm,11,13,lognormcount_thr)
+TFIIS_ints11_NP=log2_foldchange_meanthr(motifdep_precursors_tssnorm,11,14,lognormcount_thr)
+ints11_CHR=log2_foldchange_meanthr(motifdep_precursors_tssnorm,15,16,lognormcount_thr)
+TFIIS_CHR=log2_foldchange_meanthr(motifdep_precursors_tssnorm,15,17,lognormcount_thr)
+TFIIS_ints11_CHR=log2_foldchange_meanthr(motifdep_precursors_tssnorm,15,18,lognormcount_thr)
+ints11_NP_rep2=log2_foldchange_meanthr(motifdep_precursors_tssnorm,19,20,lognormcount_thr)
+TFIIS_NP_rep2=log2_foldchange_meanthr(motifdep_precursors_tssnorm,19,21,lognormcount_thr)
+TFIIS_ints11_NP_rep2=log2_foldchange_meanthr(motifdep_precursors_tssnorm,19,22,lognormcount_thr)
+ints11_CHR_rep2=log2_foldchange_meanthr(motifdep_precursors_tssnorm,23,24,lognormcount_thr)
+TFIIS_CHR_rep2=log2_foldchange_meanthr(motifdep_precursors_tssnorm,23,25,lognormcount_thr)
+TFIIS_ints11_CHR_rep2=log2_foldchange_meanthr(motifdep_precursors_tssnorm,23,26,lognormcount_thr)
+
+
+fc_distributions<-data.frame(fc=c(w72_ints11,w72_ints11_2,w96_ints11,ints11_NP,TFIIS_NP,TFIIS_ints11_NP,ints11_CHR,TFIIS_CHR,TFIIS_ints11_CHR,
+                                  ints11_NP_rep2,TFIIS_NP_rep2,TFIIS_ints11_NP_rep2,ints11_CHR_rep2,TFIIS_CHR_rep2,TFIIS_ints11_CHR_rep2),
+                             exp=factor(c(rep("w72_ints11",length(w72_ints11)),rep("w72_ints11_2",length(w72_ints11_2)),
+                                          rep("w96_ints11",length(w96_ints11)),rep("ints11_NP",length(ints11_NP)),rep("TFIIS_NP",length(TFIIS_NP)),rep("TFIIS_ints11_NP",length(TFIIS_ints11_NP)),rep("ints11_CHR",length(ints11_CHR)),rep("TFIIS_CHR",length(TFIIS_CHR)),rep("TFIIS_ints11_CHR",length(TFIIS_ints11_CHR)),
+                                          rep("ints11_NP_rep2",length(ints11_NP_rep2)),rep("TFIIS_NP_rep2",length(TFIIS_NP_rep2)),rep("TFIIS_ints11_NP_rep2",length(TFIIS_ints11_NP_rep2)),rep("ints11_CHR_rep2",length(ints11_CHR_rep2)),rep("TFIIS_CHR_rep2",length(TFIIS_CHR_rep2)),rep("TFIIS_ints11_CHR_rep2",length(TFIIS_ints11_CHR_rep2))),
+                                        levels=c("w72_ints11","w72_ints11_2","w96_ints11","ints11_NP","TFIIS_NP","TFIIS_ints11_NP","ints11_CHR","TFIIS_CHR","TFIIS_ints11_CHR","ints11_NP_rep2","TFIIS_NP_rep2","TFIIS_ints11_NP_rep2","ints11_CHR_rep2","ints11_CHR_rep2_techrep","TFIIS_CHR_rep2","TFIIS_ints11_CHR_rep2")))
+fc_distributions$sample<-c(rep("whole animal",length(c(w72_ints11,w72_ints11_2,w96_ints11))),rep("nucleoplasm",length(c(ints11_NP,TFIIS_NP,TFIIS_ints11_NP))),rep("chromatin",length(c(ints11_CHR,TFIIS_CHR,TFIIS_ints11_CHR))),
+                           rep("nucleoplasm",length(c(ints11_NP_rep2,TFIIS_NP_rep2,TFIIS_ints11_NP_rep2))),rep("chromatin",length(c(ints11_CHR_rep2,TFIIS_CHR_rep2,TFIIS_ints11_CHR_rep2))))
+
+ggplot(fc_distributions)+geom_boxplot(aes(y=fc,x=exp,fill=sample))+theme_classic()+geom_abline(slope=0,intercept = 0,col=alpha("lightblue",1),linetype="dashed")+ylab("log2 fold change relative to N2 EV")+
+  theme_classic()+scale_fill_brewer(palette="GnBu")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(fc_distributions,aes(y=fc,x=exp))+geom_violin(trim=FALSE,fill=alpha("lightblue",0.3))+geom_boxplot(width=0.1,outlier.shape = NA)+theme_classic()+geom_abline(slope=0,intercept = 0,col="red",linetype="dashed")+ylab("log2 fold change ints-11 RNAi/EV")+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(fc_distributions,aes(y=fc,x=exp))+geom_violin(trim=FALSE,fill=alpha("lightblue",0.3))+theme_classic()+stat_summary(fun.y=median, geom="point", size=2, color="red")+geom_abline(slope=0,intercept = 0,col="red",linetype="dashed")+ylab("log2 fold change ints-11 RNAi/EV")+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+
+Here I plot the same data but separating the whole animal samples (Figure 1) and the germ nuclei samples (Figure 3).
+
+```{r whole animal data alone}
+
+fc_distributions_wholeanimal<-fc_distributions[which(fc_distributions$sample=="whole animal"),]
+fc_distributions_germcellpurification<-fc_distributions[-which(fc_distributions$sample=="whole animal"),]
+
+ggplot(fc_distributions_wholeanimal)+geom_boxplot(aes(y=fc,x=exp),outlier.shape=NA)+theme_classic()+geom_abline(slope=0,intercept = 0,col=alpha("lightblue",0.3),type="dashed")+ylab("log2 fold change ints-11 RNAi/EV")+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggplot(fc_distributions_wholeanimal,aes(y=fc,x=exp))+geom_violin(trim=FALSE,fill=alpha("lightblue",0.3))+geom_boxplot(width=0.1,outlier.shape = NA)+theme_classic()+geom_abline(slope=0,intercept = 0,col="red",linetype="dashed")+ylab("log2 fold change ints-11 RNAi/EV")+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("motdep_precursors_fc_distributions_wholeanimal_samples.pdf")
+ggplot(fc_distributions_wholeanimal,aes(y=fc,x=exp))+geom_violin(trim=FALSE,fill=alpha("lightblue",0.3))+theme_classic()+stat_summary(fun.y=median, geom="point", size=2, color="red")+geom_abline(slope=0,intercept = 0,col="red",linetype="dashed")+ylab("log2 fold change ints-11 RNAi/EV")+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("motdep_precursors_fc_distributions_wholeanimal_samples_v2.pdf")
+
+ggplot(fc_distributions_germcellpurification)+geom_boxplot(aes(y=fc,x=exp),outlier.shape=NA)+theme_classic()+geom_abline(slope=0,intercept = 0,col=alpha("lightblue",0.3),type="dashed")+ylab("log2 fold change ints-11 RNAi/EV")+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggplot(fc_distributions_germcellpurification,aes(y=fc,x=exp))+geom_violin(trim=FALSE,fill=alpha("lightblue",0.3))+geom_boxplot(width=0.1,outlier.shape = NA)+theme_classic()+geom_abline(slope=0,intercept = 0,col="red",linetype="dashed")+ylab("log2 fold change ints-11 RNAi/EV")+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("motdep_precursors_fc_distributions_germcellfrac_samples.pdf")
+ggplot(fc_distributions_germcellpurification,aes(y=fc,x=exp))+geom_violin(trim=FALSE,fill=alpha("lightblue",0.3))+theme_classic()+stat_summary(fun.y=median, geom="point", size=2, color="red")+geom_abline(slope=0,intercept = 0,col="red",linetype="dashed")+ylab("log2 fold change ints-11 RNAi/EV")+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("motdep_precursors_fc_distributions_germcellfrac_samples_v2.pdf")
+
+
+
+
+
+```
+
+
+# Motif independent piRNAs
+
+```{r motif-independent piRNA fc distributions}
+
+
+lognormcount_thr=2.32
+
+w72_ints11=log2_foldchange_meanthr(motifind_precursors_tssnorm,1,2,lognormcount_thr)
+w72_ints11_2=log2_foldchange_meanthr(motifind_precursors_tssnorm,3,4,lognormcount_thr)
+w96_ints11=log2_foldchange_meanthr(motifind_precursors_tssnorm,5,6,lognormcount_thr)
+ints11_nuclei=log2_foldchange_meanthr(motifind_precursors_tssnorm,7,8,lognormcount_thr)
+TFIIS_nuclei=log2_foldchange_meanthr(motifind_precursors_tssnorm,7,9,lognormcount_thr)
+TFIIS_ints11_nuclei=log2_foldchange_meanthr(motifind_precursors_tssnorm,7,10,lognormcount_thr)
+ints11_NP=log2_foldchange_meanthr(motifind_precursors_tssnorm,11,12,lognormcount_thr)
+TFIIS_NP=log2_foldchange_meanthr(motifind_precursors_tssnorm,11,13,lognormcount_thr)
+TFIIS_ints11_NP=log2_foldchange_meanthr(motifind_precursors_tssnorm,11,14,lognormcount_thr)
+ints11_CHR=log2_foldchange_meanthr(motifind_precursors_tssnorm,15,16,lognormcount_thr)
+TFIIS_CHR=log2_foldchange_meanthr(motifind_precursors_tssnorm,15,17,lognormcount_thr)
+TFIIS_ints11_CHR=log2_foldchange_meanthr(motifind_precursors_tssnorm,15,18,lognormcount_thr)
+ints11_NP_rep2=log2_foldchange_meanthr(motifind_precursors_tssnorm,19,20,lognormcount_thr)
+TFIIS_NP_rep2=log2_foldchange_meanthr(motifind_precursors_tssnorm,19,21,lognormcount_thr)
+TFIIS_ints11_NP_rep2=log2_foldchange_meanthr(motifind_precursors_tssnorm,19,22,lognormcount_thr)
+ints11_CHR_rep2=log2_foldchange_meanthr(motifind_precursors_tssnorm,23,24,lognormcount_thr)
+TFIIS_CHR_rep2=log2_foldchange_meanthr(motifind_precursors_tssnorm,23,25,lognormcount_thr)
+TFIIS_ints11_CHR_rep2=log2_foldchange_meanthr(motifind_precursors_tssnorm,23,26,lognormcount_thr)
+
+
+fc_distributions<-data.frame(fc=c(w72_ints11,w72_ints11_2,w96_ints11,ints11_NP,TFIIS_NP,TFIIS_ints11_NP,ints11_CHR,TFIIS_CHR,TFIIS_ints11_CHR,
+                                  ints11_NP_rep2,TFIIS_NP_rep2,TFIIS_ints11_NP_rep2,ints11_CHR_rep2,TFIIS_CHR_rep2,TFIIS_ints11_CHR_rep2),
+                             exp=factor(c(rep("w72_ints11",length(w72_ints11)),rep("w72_ints11_2",length(w72_ints11_2)),
+                                          rep("w96_ints11",length(w96_ints11)),rep("ints11_NP",length(ints11_NP)),rep("TFIIS_NP",length(TFIIS_NP)),rep("TFIIS_ints11_NP",length(TFIIS_ints11_NP)),rep("ints11_CHR",length(ints11_CHR)),rep("TFIIS_CHR",length(TFIIS_CHR)),rep("TFIIS_ints11_CHR",length(TFIIS_ints11_CHR)),
+                                          rep("ints11_NP_rep2",length(ints11_NP_rep2)),rep("TFIIS_NP_rep2",length(TFIIS_NP_rep2)),rep("TFIIS_ints11_NP_rep2",length(TFIIS_ints11_NP_rep2)),rep("ints11_CHR_rep2",length(ints11_CHR_rep2)),rep("TFIIS_CHR_rep2",length(TFIIS_CHR_rep2)),rep("TFIIS_ints11_CHR_rep2",length(TFIIS_ints11_CHR_rep2))),
+                                        levels=c("w72_ints11","w72_ints11_2","w96_ints11","ints11_NP","TFIIS_NP","TFIIS_ints11_NP","ints11_CHR","TFIIS_CHR","TFIIS_ints11_CHR","ints11_NP_rep2","TFIIS_NP_rep2","TFIIS_ints11_NP_rep2","ints11_CHR_rep2","TFIIS_CHR_rep2","TFIIS_ints11_CHR_rep2")))
+fc_distributions$sample<-c(rep("whole animal",length(c(w72_ints11,w72_ints11_2,w96_ints11))),rep("nucleoplasm",length(c(ints11_NP,TFIIS_NP,TFIIS_ints11_NP))),rep("chromatin",length(c(ints11_CHR,TFIIS_CHR,TFIIS_ints11_CHR))),
+                           rep("nucleoplasm",length(c(ints11_NP_rep2,TFIIS_NP_rep2,TFIIS_ints11_NP_rep2))),rep("chromatin",length(c(ints11_CHR_rep2,TFIIS_CHR_rep2,TFIIS_ints11_CHR_rep2))))
+
+ggplot(fc_distributions)+geom_boxplot(aes(y=fc,x=exp,fill=sample))+theme_classic()+geom_abline(slope=0,intercept = 0,col=alpha("lightblue",1),linetype="dashed")+ylab("log2 fold change relative to N2 EV")+
+  theme_classic()+scale_fill_brewer(palette="GnBu")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  ggtitle("motif-independent piRNAs")
+  
+  
+ggplot(fc_distributions)+geom_boxplot(aes(y=fc,x=exp),outlier.shape=NA)+theme_classic()+geom_abline(slope=0,intercept = 0,col=alpha("lightblue",0.3),type="dashed")+ylab("log2 fold change ints-11 RNAi/EV")+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggplot(fc_distributions,aes(y=fc,x=exp))+geom_violin(trim=FALSE,fill=alpha("lightblue",0.3))+geom_boxplot(width=0.1,outlier.shape = NA)+theme_classic()+geom_abline(slope=0,intercept = 0,col="red",linetype="dashed")+ylab("log2 fold change ints-11 RNAi/EV")+theme(axis.text.x = element_text(angle = 45, hjust = 1))+ggtitle("type II piRNAs")
+ggplot(fc_distributions,aes(y=fc,x=exp))+geom_violin(trim=FALSE,fill=alpha("lightblue",0.3))+theme_classic()+stat_summary(fun.y=median, geom="point", size=2, color="red")+geom_abline(slope=0,intercept = 0,col="red",linetype="dashed")+ylab("log2 fold change ints-11 RNAi/EV")+theme(axis.text.x = element_text(angle = 45, hjust = 1))+ggtitle("motif-independent piRNAs")
+
+
+fc_distributions_wholeanimal<-fc_distributions[which(fc_distributions$sample=="whole animal"),]
+fc_distributions_germcellpurification<-fc_distributions[-which(fc_distributions$sample=="whole animal"),]
+
+
+ggplot(fc_distributions_wholeanimal)+geom_boxplot(aes(y=fc,x=exp),outlier.shape=NA)+theme_classic()+geom_abline(slope=0,intercept = 0,col=alpha("lightblue",0.3),type="dashed")+ylab("log2 fold change ints-11 RNAi/EV")+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggplot(fc_distributions_wholeanimal,aes(y=fc,x=exp))+geom_violin(trim=FALSE,fill=alpha("lightblue",0.3),bw=1.5)+geom_boxplot(width=0.1,outlier.shape = NA)+theme_classic()+geom_abline(slope=0,intercept = 0,col="red",linetype="dashed")+ylab("log2 fold change ints-11 RNAi/EV")+theme(axis.text.x = element_text(angle = 45, hjust = 1))+ggtitle("type II piRNAs")
+ggsave("motind_precursors_fc_distributions_wholeanimal_samples.pdf")
+ggplot(fc_distributions_wholeanimal,aes(y=fc,x=exp))+geom_violin(trim=FALSE,fill=alpha("lightblue",0.3),bw=1.5)+theme_classic()+stat_summary(fun.y=median, geom="point", size=2, color="red")+geom_abline(slope=0,intercept = 0,col="red",linetype="dashed")+ylab("log2 fold change ints-11 RNAi/EV")+theme(axis.text.x = element_text(angle = 45, hjust = 1))+ggtitle("type II piRNAs")
+ggsave("motind_precursors_fc_distributions_wholeanimal_samples_v2.pdf")
+
+ggplot(fc_distributions_germcellpurification)+geom_boxplot(aes(y=fc,x=exp),outlier.shape=NA)+theme_classic()+geom_abline(slope=0,intercept = 0,col=alpha("lightblue",0.3),type="dashed")+ylab("log2 fold change ints-11 RNAi/EV")+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggplot(fc_distributions_germcellpurification,aes(y=fc,x=exp))+geom_violin(trim=FALSE,fill=alpha("lightblue",0.3),bw=1)+geom_boxplot(width=0.1,outlier.shape = NA)+theme_classic()+geom_abline(slope=0,intercept = 0,col="red",linetype="dashed")+ylab("log2 fold change ints-11 RNAi/EV")+theme(axis.text.x = element_text(angle = 45, hjust = 1))+ggtitle("type II piRNAs")
+ggsave("motind_precursors_fc_distributions_germcellfrac_samples.pdf")
+ggplot(fc_distributions_germcellpurification,aes(y=fc,x=exp))+geom_violin(trim=FALSE,fill=alpha("lightblue",0.3),bw=1)+theme_classic()+stat_summary(fun.y=median, geom="point", size=2, color="red")+geom_abline(slope=0,intercept = 0,col="red",linetype="dashed")+ylab("log2 fold change ints-11 RNAi/EV")+theme(axis.text.x = element_text(angle = 45, hjust = 1))+ggtitle("type II piRNAs")
+ggsave("motind_precursors_fc_distributions_germcellfrac_samples_v2.pdf")
+
+
+```
+
+
+
+```{r abundance by chromatin bound RNA length ratios}
+
+chrlength_ratios<-read.table("/Users/ab6415/Documents/Work_laptop_stuff/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig1_Fig3_FigS3_FigS4_precursors_analysis/length/fraction_of_chrbound_precursors_longerThan38Nts.txt")
+chrlength_ratios$ratio_bin<-as.character(chrlength_ratios$ratio_bin)
+longchr<-chrlength_ratios[which(chrlength_ratios$ratio_bin == "(0.8,1]"),"locus"]
+shortchr<-chrlength_ratios[which(chrlength_ratios$ratio_bin == "(0,0.2]"),"locus"]
+
+motifdep_precursors_tssnorm_toplongest<-motifdep_precursors_tssnorm[which(rownames(motifdep_precursors_tssnorm) %in% longchr),]
+motifdep_precursors_tssnorm_topshortest<-motifdep_precursors_tssnorm[which(rownames(motifdep_precursors_tssnorm) %in% longchr),]
+
+plot(log2(motifdep_precursors_tssnorm_toplongest[,24]*0.5+motifdep_precursors_tssnorm_toplongest[,23]*0.5+1),log2(motifdep_precursors_tssnorm_toplongest[,24]+1)-log2(motifdep_precursors_tssnorm_toplongest[,23]+1))
+abline(h=0,col="red",type="dashed")
+
+lognormcount_thr=2.32
+
+ints11_NP=log2_foldchange_meanthr(motifdep_precursors_tssnorm_toplongest,11,12,lognormcount_thr)
+TFIIS_NP=log2_foldchange_meanthr(motifdep_precursors_tssnorm_toplongest,11,13,lognormcount_thr)
+TFIIS_ints11_NP=log2_foldchange_meanthr(motifdep_precursors_tssnorm_toplongest,11,14,lognormcount_thr)
+ints11_NP_rep2=log2_foldchange_meanthr(motifdep_precursors_tssnorm_toplongest,19,20,lognormcount_thr)
+TFIIS_NP_rep2=log2_foldchange_meanthr(motifdep_precursors_tssnorm_toplongest,19,21,lognormcount_thr)
+TFIIS_ints11_NP_rep2=log2_foldchange_meanthr(motifdep_precursors_tssnorm_toplongest,19,22,lognormcount_thr)
+
+ints11_NP_s=log2_foldchange_meanthr(motifdep_precursors_tssnorm_topshortest,11,12,lognormcount_thr)
+TFIIS_NP_s=log2_foldchange_meanthr(motifdep_precursors_tssnorm_topshortest,11,13,lognormcount_thr)
+TFIIS_ints11_NP_s=log2_foldchange_meanthr(motifdep_precursors_tssnorm_topshortest,11,14,lognormcount_thr)
+ints11_NP_rep2_s=log2_foldchange_meanthr(motifdep_precursors_tssnorm_topshortest,19,20,lognormcount_thr)
+TFIIS_NP_rep2_s=log2_foldchange_meanthr(motifdep_precursors_tssnorm_topshortest,19,21,lognormcount_thr)
+TFIIS_ints11_NP_rep2_s=log2_foldchange_meanthr(motifdep_precursors_tssnorm_topshortest,19,22,lognormcount_thr)
+
+
+
+
+fc_distributions<-data.frame(fc=c(ints11_NP,TFIIS_NP,TFIIS_ints11_NP,
+                                  ints11_NP_rep2,TFIIS_NP_rep2,TFIIS_ints11_NP_rep2,
+                                  ints11_NP_s,TFIIS_NP_s,TFIIS_ints11_NP_s,
+                                  ints11_NP_rep2_s,TFIIS_NP_rep2_s,TFIIS_ints11_NP_rep2_s),
+                             exp=factor(c(
+rep("ints11_NP_longest",length(ints11_NP)),rep("TFIIS_NP_longest",length(TFIIS_NP)),rep("TFIIS_ints11_NP_longest",length(TFIIS_ints11_NP)),
+rep("ints11_NP_rep2_longest",length(ints11_NP_rep2)),rep("TFIIS_NP_rep2_longest",length(TFIIS_NP_rep2)),rep("TFIIS_ints11_NP_rep2_longest",length(TFIIS_ints11_NP_rep2)),
+rep("ints11_NP_shortest",length(ints11_NP_s)),rep("TFIIS_NP_shortest",length(TFIIS_NP_s)),rep("TFIIS_ints11_NP_shortest",length(TFIIS_ints11_NP_s)),
+rep("ints11_NP_rep2_shortest",length(ints11_NP_rep2_s)),rep("TFIIS_NP_rep2_shortest",length(TFIIS_NP_rep2_s)),rep("TFIIS_ints11_NP_rep2_shortest",length(TFIIS_ints11_NP_rep2_s))),
+                                        levels=c("ints11_NP_longest","ints11_NP_shortest","TFIIS_NP_longest","TFIIS_NP_shortest","TFIIS_ints11_NP_longest","TFIIS_ints11_NP_shortest","ints11_NP_rep2_longest","ints11_NP_rep2_shortest","TFIIS_NP_rep2_longest","TFIIS_NP_rep2_shortest","TFIIS_ints11_NP_rep2_longest","TFIIS_ints11_NP_rep2_shortest")))
+
+
+fc_distributions$bin<-c(rep("longest",times=length(c(ints11_NP,TFIIS_NP,TFIIS_ints11_NP,
+                                  ints11_NP_rep2,TFIIS_NP_rep2,TFIIS_ints11_NP_rep2))),
+                        rep("shortest",times=length(c(ints11_NP_s,TFIIS_NP_s,TFIIS_ints11_NP_s,
+                                  ints11_NP_rep2_s,TFIIS_NP_rep2_s,TFIIS_ints11_NP_rep2_s))))
+
+
+ggplot(fc_distributions)+geom_boxplot(aes(y=fc,x=exp,fill=bin))+theme_classic()+geom_abline(slope=0,intercept = 0,col=alpha("lightblue",1),linetype="dashed")+ylab("log2 fold change relative to N2 EV")+
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave("change_in_NP_abundance_in_top_and_btm_chrbound_length.pdf")
+
+
+
+
+
+```

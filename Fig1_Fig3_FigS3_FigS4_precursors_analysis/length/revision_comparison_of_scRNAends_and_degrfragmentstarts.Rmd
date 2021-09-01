@@ -1,0 +1,263 @@
+---
+title: "comparison of 3prime ends of scRNAs with 5prime ends of degradation fragments"
+output: html_document
+---
+
+```{r load and aggregate scRNA data}
+
+library(ggplot2)
+library(scales)
+
+setwd("/Users/ab6415/Documents/Work_laptop_stuff/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig1_Fig3_FigS3_FigS4_precursors_analysis/length/")
+
+piRNA_counts_wholeanimal_E1 <- list.files(path="../counts/wholeworm/",
+    pattern="*pis"); piRNA_counts_wholeanimal_E1<-paste0("../counts/wholeworm/",piRNA_counts_wholeanimal_E1,sep="")
+piRNA_counts_wholeanimal_E1_longreads <- list.files(path="../counts/wholeworm_longreads/",
+    pattern="*pis"); piRNA_counts_wholeanimal_E1_longreads<-paste0("../counts/wholeworm_longreads/",piRNA_counts_wholeanimal_E1_longreads,sep="")
+piRNA_counts_germnuclei_total <- list.files(path="../counts/germnuclei_total/",
+    pattern="*pis"); piRNA_counts_germnuclei_total<-paste0("../counts/germnuclei_total/",piRNA_counts_germnuclei_total,sep="")
+piRNA_counts_germnuclei_fractionation <- list.files(path="../counts/germnuclei_fractionation_rep1/",
+    pattern="*pis"); piRNA_counts_germnuclei_fractionation<-paste0("../counts/germnuclei_fractionation_rep1/",piRNA_counts_germnuclei_fractionation,sep="")
+piRNA_counts_germnuclei_fractionation_rep2 <- list.files(path="../counts/germnuclei_fractionation_rep2/",
+    pattern="*pis"); piRNA_counts_germnuclei_fractionation_rep2<-paste0("../counts/germnuclei_fractionation_rep2/",piRNA_counts_germnuclei_fractionation_rep2,sep="")
+
+
+piRNA_counts_filenames<-c(piRNA_counts_wholeanimal_E1,piRNA_counts_wholeanimal_E1_longreads,piRNA_counts_germnuclei_total,piRNA_counts_germnuclei_fractionation,piRNA_counts_germnuclei_fractionation_rep2)
+piRNA_counts_filenames<-piRNA_counts_filenames[c(1:13,19:21,14:18,27:30,22,23,25,26)]
+
+names <-c("wholeworm_EV_col1","wholeworm_ints11_col1","wholeworm_EV_col2","wholeworm_ints11_col2","wholeworm_EV_96h","wholeworm_ints11_96h","wholeworm_EV_col1_longreads","wholeworm_ints11_col1_longreads","wholeworm_ints11_col2_longreads","germnuclei_total_N2_EV","germnuclei_total_N2_ints11","germnuclei_total_TFIIS_EV","germnuclei_total_TFIIS_ints11","germnuclei_NP_N2_EV","germnuclei_NP_N2_ints11","germnuclei_NP_TFIIS_EV","germnuclei_NP_TFIIS_ints11","germnuclei_CHR_N2_EV","germnuclei_CHR_N2_ints11","germnuclei_CHR_TFIIS_EV","germnuclei_CHR_TFIIS_ints11","germnuclei_rep2_NP_N2_EV","germnuclei_rep2_NP_N2_ints11","germnuclei_rep2_NP_TFIIS_EV","germnuclei_rep2_NP_TFIIS_ints11","germnuclei_rep2_CHR_N2_EV","germnuclei_rep2_CHR_N2_ints11","germnuclei_rep2_CHR_TFIIS_EV","germnuclei_rep2_CHR_TFIIS_ints11")
+
+piRNA_counts_filenames
+names         
+
+piRNA_counts <- lapply(piRNA_counts_filenames,function(i){
+  read.csv(paste(i,sep=""), header=FALSE,sep="\t")
+})
+
+
+piRNA_counts_precfiltered <- lapply(piRNA_counts, function(df){
+ df$plus_d <- df$V10-df$V2
+ df$minus_d <- df$V3-df$V11
+ df_plus<-df[which(df$plus_d==2 & df$V8=="+"),]
+ df_minus<-df[which(df$minus_d==(2) & df$V8=="-"),]
+ return(rbind(df_plus,df_minus))
+})
+
+motifdep_piRNA_precursors<-lapply(piRNA_counts_precfiltered,function(df){return(df[c(grep("^21UR-",df$V12),grep("^piRNA_type_1",df$V12)),])})
+motifind_piRNA_precursors<-lapply(piRNA_counts_precfiltered,function(df){return(df[grep("^piRNA_type_2",df$V12),])})
+
+N2_EV_np<-rbind(motifdep_piRNA_precursors[[14]],motifdep_piRNA_precursors[[22]])
+N2_EV_np<-aggregate(N2_EV_np[,"V6"],by=N2_EV_np[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+N2_ints11_np<-rbind(motifdep_piRNA_precursors[[15]],motifdep_piRNA_precursors[[23]])
+N2_ints11_np<-aggregate(N2_ints11_np[,"V6"],by=N2_ints11_np[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+tfiis_EV_np<-rbind(motifdep_piRNA_precursors[[16]],motifdep_piRNA_precursors[[24]])
+tfiis_EV_np<-aggregate(tfiis_EV_np[,"V6"],by=tfiis_EV_np[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+tfiis_ints11_np<-rbind(motifdep_piRNA_precursors[[17]],motifdep_piRNA_precursors[[25]])
+tfiis_ints11_np<-aggregate(tfiis_ints11_np[,"V6"],by=tfiis_ints11_np[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+
+N2_EV_chr<-rbind(motifdep_piRNA_precursors[[18]],motifdep_piRNA_precursors[[26]])
+N2_EV_chr<-aggregate(N2_EV_chr[,"V6"],by=N2_EV_chr[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+N2_ints11_chr<-rbind(motifdep_piRNA_precursors[[19]],motifdep_piRNA_precursors[[27]])
+N2_ints11_chr<-aggregate(N2_ints11_chr[,"V6"],by=N2_ints11_chr[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+tfiis_EV_chr<-rbind(motifdep_piRNA_precursors[[20]],motifdep_piRNA_precursors[[28]])
+tfiis_EV_chr<-aggregate(tfiis_EV_chr[,"V6"],by=tfiis_EV_chr[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+tfiis_ints11_chr<-rbind(motifdep_piRNA_precursors[[21]],motifdep_piRNA_precursors[[29]])
+tfiis_ints11_chr<-aggregate(tfiis_ints11_chr[,"V6"],by=tfiis_ints11_chr[c("V1","V2","V3","V4","V5","V12")],FUN=sum)
+
+motifdep_piRNA_precursors_agg<-list(N2_EV_np,N2_ints11_np,tfiis_EV_np,tfiis_ints11_np,
+                                    N2_EV_chr,N2_ints11_chr,tfiis_EV_chr,tfiis_ints11_chr)
+
+names_agg<-c("N2_EV_np","N2_ints11_np","tfiis_EV_np","tfiis_ints11_np",
+             "N2_EV_chr","N2_ints11_chr","tfiis_EV_chr","tfiis_ints11_chr")
+
+
+library(reshape2)
+library(dplyr)
+
+motifdep_piRNA_precursors_data_summary<-lapply(motifdep_piRNA_precursors_agg,function(df){
+  number_seqs<-aggregate(df[,"V12"],by=list(df[,"V12"]),FUN=length)
+  median_length<-aggregate(df[,"V4"],by=list(df[,"V12"]),FUN=median)
+  mean_length<-aggregate(df[,"V4"],by=list(df[,"V12"]),FUN=mean)
+  
+  number_reads<-aggregate(df[,"x"],by=list(df[,"V12"]),FUN=sum)
+  df_uncol<-df[rep(row.names(df), df$x),]
+  median_length_numreads<-aggregate(df_uncol[,"V4"],by=list(df_uncol[,"V12"]),FUN=median)
+  mean_length_numreads<-aggregate(df_uncol[,"V4"],by=list(df_uncol[,"V12"]),FUN=mean)
+
+  merged<-data.frame(number_seqs$x,
+                   median_length$x,
+                   mean_length$x,
+                   number_reads$x,
+                   median_length_numreads$x,
+                   mean_length_numreads$x)
+  colnames(merged)<-c("number_seqs","median_length","mean_length","number_reads","median_length_numreads","mean_length_numreads")
+  rownames(merged)<-number_seqs$Group.1
+  return(merged)
+})
+
+
+merged_df<-motifdep_piRNA_precursors_data_summary[[1]]
+colnames(merged_df)<-paste0(names_agg[1],colnames(merged_df))
+for (i in seq(2,length(names_agg))){
+  df<-motifdep_piRNA_precursors_data_summary[[i]]
+  colnames(df)<-paste0(names_agg[i],colnames(df))
+  merged_df<-merge(merged_df,df,by=0,all=TRUE)
+  rownames(merged_df)<-merged_df$Row.names
+  merged_df$Row.names<-NULL
+}
+
+sample_index_to_medianlength_index<-function(index){return((index-1)*6+2)}
+
+
+```
+
+```{r 3prime cap and 5prime degradation fragment positions}
+
+path_fragments<-"/Users/ab6415/Documents/Work_laptop_stuff/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig4_FigS5_degradationfragments/fragment_length_and_abundance_analysis/"
+fragments<- list.files(path=path_fragments, pattern="*distance") 
+fragments<-paste0(path_fragments,fragments)
+fragments_names <-c("N2_EV2","N2_ints11_RNAi2","TFIIS_EV2","N2_EV1","TFIIS_ints11_RNAi2","N2_ints11_RNAi1","TFIIS_EV1","TFIIS_ints11_RNAi1")
+          
+fragment_data <- lapply(fragments,function(i){
+  read.table(file=i,sep="\t")
+})
+
+N2_EV<-rbind(fragment_data[[1]],fragment_data[[4]])
+N2_EV<-aggregate(N2_EV[,"V6"],by=N2_EV[colnames(fragment_data[[1]])[c(1:5,7:15)]],FUN=sum)
+N2_ints11<-rbind(fragment_data[[2]],fragment_data[[6]])
+N2_ints11<-aggregate(N2_ints11[,"V6"],by=N2_ints11[colnames(fragment_data[[1]])[c(1:5,7:15)]],FUN=sum)
+tfiis_EV<-rbind(fragment_data[[3]],fragment_data[[7]])
+tfiis_EV<-aggregate(tfiis_EV[,"V6"],by=tfiis_EV[colnames(fragment_data[[1]])[c(1:5,7:15)]],FUN=sum)
+tfiis_ints11<-rbind(fragment_data[[5]],fragment_data[[8]])
+tfiis_ints11<-aggregate(tfiis_ints11[,"V6"],by=tfiis_ints11[colnames(fragment_data[[1]])[c(1:5,7:15)]],FUN=sum)
+
+fragment_data_agg<-list(N2_EV,N2_ints11,tfiis_EV,tfiis_ints11)
+fragments_names_agg <-c("N2_EV","N2_ints11_RNAi","TFIIS_EV","TFIIS_ints11_RNAi")
+
+
+
+fragment_distances<-lapply(fragment_data_agg,function(df){
+  df$distance<-df$V2-df$V10
+  df$distance[which(as.character(df$V8)=="-")]<-df$distance[which(df$V8=="-")]*(-1)
+  df$distance<-df$distance+2
+  return(df[which(df$distance<100 & df$distance>15),])})
+
+
+fragment_distances_bylocus<-lapply(fragment_distances,function(df){
+    median_distance_collapsed<-aggregate(df[,"distance"],by=list(df[,"V12"]),FUN=median)
+    mean_distance_collapsed<-aggregate(df[,"distance"],by=list(df[,"V12"]),FUN=mean)
+    
+    df_uncol<-df[rep(row.names(df), df$x),]
+    median_distance_uncollapsed<-aggregate(df_uncol[,"distance"],by=list(df_uncol[,"V12"]),FUN=median)
+    mean_distance_uncollapsed<-aggregate(df_uncol[,"distance"],by=list(df_uncol[,"V12"]),FUN=mean)
+    
+    merged<-data.frame( median_distance_collapsed$x,
+                        mean_distance_collapsed$x,
+                        median_distance_uncollapsed$x,
+                        mean_distance_uncollapsed$x)
+  colnames(merged)<-c("median_distance_col","mean_distance_col","median_distance_uncol","mean_distance_uncol")
+  rownames(merged)<-median_distance_collapsed$Group.1
+  return(merged)
+})
+
+fragments_df_merged<-fragment_distances_bylocus[[1]]
+colnames(fragments_df_merged)<-paste0(fragments_names_agg[1],colnames(fragments_df_merged))
+for (i in seq(2,length(fragments_names_agg))){
+  df<-fragment_distances_bylocus[[i]]
+  colnames(df)<-paste0(fragments_names_agg[i],colnames(df))
+  fragments_df_merged<-merge(fragments_df_merged,df,by=0,all=TRUE)
+  rownames(fragments_df_merged)<-fragments_df_merged$Row.names
+  fragments_df_merged$Row.names<-NULL
+}
+
+colnames(fragments_df_merged)
+
+
+merged_fragments_and_scRNAs<-merge(merged_df,fragments_df_merged,by=0,all=TRUE)
+rownames(merged_fragments_and_scRNAs)<-merged_fragments_and_scRNAs$Row.names
+merged_fragments_and_scRNAs$Row.names<-NULL
+
+
+ggplot(merged_fragments_and_scRNAs)+geom_point(aes(y=N2_EV_npmean_length_numreads,x=N2_EVmean_distance_uncol),col=alpha("black",0.5))+
+  ylab("3´ end of nucleoplasmic precursors")+
+  xlab("5´ end of degradation fragments")+
+  ggtitle("N2 EV")+
+  theme_classic()
+ggsave("degradation_fragment_starts_vs_scRNA_ends_N2_EV.pdf")
+
+ggplot(merged_fragments_and_scRNAs)+geom_point(aes(y=N2_EV_chrmean_length_numreads,x=N2_EVmean_distance_uncol))+
+  ylab("3´ end of chromatin-bound precursors")+
+  xlab("5´ end of degradation fragments")+
+  ggtitle("N2 EV")+
+  theme_classic()
+
+ggplot(merged_fragments_and_scRNAs)+geom_point(aes(y=N2_ints11_npmean_length_numreads,x=N2_ints11_RNAimean_distance_uncol))+
+  ylab("3´ end of nucleoplasmic precursors")+
+  xlab("5´ end of degradation fragments")+
+  ggtitle("N2 ints-11 RNAi")+
+  theme_classic()
+ggplot(merged_fragments_and_scRNAs)+geom_point(aes(y=N2_ints11_chrmean_length_numreads,x=N2_ints11_RNAimean_distance_uncol))+
+  ylab("3´ end of chromatin-bound precursors")+
+  xlab("5´ end of degradation fragments")+
+  ggtitle("N2 ints-11 RNAi")+
+  theme_classic()
+
+ggplot(merged_fragments_and_scRNAs)+geom_point(aes(y=tfiis_EV_npmean_length_numreads,x=TFIIS_EVmean_distance_uncol))+
+  ylab("3´ end of nucleoplasmic precursors")+
+  xlab("5´ end of degradation fragments")+
+  ggtitle("tfiis EV")+
+  theme_classic()
+ggplot(merged_fragments_and_scRNAs)+geom_point(aes(y=tfiis_EV_chrmean_length_numreads,x=TFIIS_EVmean_distance_uncol))+
+  ylab("3´ end of chromatin-bound precursors")+
+  xlab("5´ end of degradation fragments")+
+  ggtitle("tfiis EV")+
+  theme_classic()
+
+ggplot(merged_fragments_and_scRNAs)+geom_point(aes(y=tfiis_ints11_npmean_length_numreads,x=TFIIS_ints11_RNAimean_distance_uncol))+
+  ylab("3´ end of nucleoplasmic precursors")+
+  xlab("5´ end of degradation fragments")+
+  ggtitle("tfiis ints-11 RNAi")+
+  theme_classic()
+ggplot(merged_fragments_and_scRNAs)+geom_point(aes(y=tfiis_ints11_chrmean_length_numreads,x=TFIIS_ints11_RNAimean_distance_uncol))+
+  ylab("3´ end of chromatin-bound precursors")+
+  xlab("5´ end of degradation fragments")+
+  ggtitle("tfiis ints-11 RNAi")+
+  theme_classic()
+
+
+```
+
+
+```{r stratified by termination signal strength}
+
+pausing_strength_data<-read.table("../../Reference_pausing_signal_strength/all_pis_typeI_pausingscores.bed",header=TRUE)
+pausing_strength_data<-pausing_strength_data[,c(4,10:12)]
+pausing_strength_data$V4<-as.character(pausing_strength_data$V4)
+
+
+merged_fragments_and_scRNAs_pausingstrength<-merge(merged_fragments_and_scRNAs,pausing_strength_data,
+                                                   by.x=0,by.y="V4",all.x=TRUE)
+merged_fragments_and_scRNAs_pausingstrength$tm_downstream_bins<-factor(merged_fragments_and_scRNAs_pausingstrength$tm_downstream_bins,                                                                   levels=c("(-713,-94.8]","(-94.8,-18.3]","(-18.3,39.8]","(39.8,101]","(101,412]"))
+
+table(merged_fragments_and_scRNAs_pausingstrength$tm_downstream_bins)
+
+ggplot(merged_fragments_and_scRNAs_pausingstrength)+geom_point(aes(y=N2_EV_npmean_length_numreads,x=N2_EVmean_distance_uncol,col=tm_downstream_bins),col=alpha("black",0.5))+
+  ylab("3´ end of nucleoplasmic precursors")+
+  xlab("5´ end of degradation fragments")+
+  ggtitle("N2 EV")+
+  facet_grid(factor(tm_downstream_bins) ~ .)
+  theme_classic()
+ggsave("np_ends_vs_fragmentstarts_tmbins_1.pdf")
+
+
+ggplot(merged_fragments_and_scRNAs_pausingstrength)+geom_point(aes(y=N2_EV_npmean_length_numreads,x=N2_EVmean_distance_uncol,col=tm_downstream_bins),col=alpha("black",0.5))+
+  ylab("3´ end of nucleoplasmic precursors")+
+  xlab("5´ end of degradation fragments")+
+  ggtitle("N2 EV")+
+  facet_grid(. ~ factor(tm_downstream_bins))
+  theme_classic()
+ggsave("np_ends_vs_fragmentstarts_tmbins_2.pdf")
+
+
+
+```

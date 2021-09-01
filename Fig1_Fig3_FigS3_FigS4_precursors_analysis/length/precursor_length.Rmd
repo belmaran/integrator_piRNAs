@@ -1,0 +1,562 @@
+---
+title: "Analysis of piRNA precursor length"
+author: "Toni Beltran"
+date: "03/03/2020"
+output: html_document
+---
+
+Here I load the precursor alignments data from all samples. Bed files are intersected with piRNA annotations, and the mapping locations of the reads and 21U-RNA sites are imported - these information is used to select for precursors as reads initiating at the -2 position (these are clearly enriched, see initiation landscapes Rmd).
+
+I then plot the length distributions of these precursors, analyzing the changes in length that occur upon RNAi knockdown of ints-11, mutation of the general elongation factor TFIIS, or both.
+
+```{r load data}
+
+library(ggplot2)
+
+setwd("/Users/ab6415/Documents/Work_laptop_stuff/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig1_Fig3_FigS3_FigS4_precursors_analysis/length/")
+
+piRNA_counts_wholeanimal_E1 <- list.files(path="../counts/wholeworm/",
+    pattern="*pis"); piRNA_counts_wholeanimal_E1<-paste0("../counts/wholeworm/",piRNA_counts_wholeanimal_E1,sep="")
+piRNA_counts_wholeanimal_E1_longreads <- list.files(path="../counts/wholeworm_longreads/",
+    pattern="*pis"); piRNA_counts_wholeanimal_E1_longreads<-paste0("../counts/wholeworm_longreads/",piRNA_counts_wholeanimal_E1_longreads,sep="")
+piRNA_counts_germnuclei_total <- list.files(path="../counts/germnuclei_total/",
+    pattern="*pis"); piRNA_counts_germnuclei_total<-paste0("../counts/germnuclei_total/",piRNA_counts_germnuclei_total,sep="")
+piRNA_counts_germnuclei_fractionation <- list.files(path="../counts/germnuclei_fractionation_rep1/",
+    pattern="*pis"); piRNA_counts_germnuclei_fractionation<-paste0("../counts/germnuclei_fractionation_rep1/",piRNA_counts_germnuclei_fractionation,sep="")
+piRNA_counts_germnuclei_fractionation_rep2 <- list.files(path="../counts/germnuclei_fractionation_rep2/",
+    pattern="*pis"); piRNA_counts_germnuclei_fractionation_rep2<-paste0("../counts/germnuclei_fractionation_rep2/",piRNA_counts_germnuclei_fractionation_rep2,sep="")
+
+
+piRNA_counts_filenames<-c(piRNA_counts_wholeanimal_E1,piRNA_counts_wholeanimal_E1_longreads,piRNA_counts_germnuclei_total,piRNA_counts_germnuclei_fractionation,piRNA_counts_germnuclei_fractionation_rep2)
+piRNA_counts_filenames<-piRNA_counts_filenames[c(1:13,19:21,14:18,27:30,22,23,25,26)]
+
+names <-c("wholeworm_EV_col1","wholeworm_ints11_col1","wholeworm_EV_col2","wholeworm_ints11_col2","wholeworm_EV_96h","wholeworm_ints11_96h","wholeworm_EV_col1_longreads","wholeworm_ints11_col1_longreads","wholeworm_ints11_col2_longreads","germnuclei_total_N2_EV","germnuclei_total_N2_ints11","germnuclei_total_TFIIS_EV","germnuclei_total_TFIIS_ints11","germnuclei_NP_N2_EV","germnuclei_NP_N2_ints11","germnuclei_NP_TFIIS_EV","germnuclei_NP_TFIIS_ints11","germnuclei_CHR_N2_EV","germnuclei_CHR_N2_ints11","germnuclei_CHR_TFIIS_EV","germnuclei_CHR_TFIIS_ints11","germnuclei_rep2_NP_N2_EV","germnuclei_rep2_NP_N2_ints11","germnuclei_rep2_NP_TFIIS_EV","germnuclei_rep2_NP_TFIIS_ints11","germnuclei_rep2_CHR_N2_EV","germnuclei_rep2_CHR_N2_ints11","germnuclei_rep2_CHR_TFIIS_EV","germnuclei_rep2_CHR_TFIIS_ints11")
+
+piRNA_counts_filenames
+names         
+
+piRNA_counts <- lapply(piRNA_counts_filenames,function(i){
+  read.csv(paste(i,sep=""), header=FALSE,sep="\t")
+})
+
+
+piRNA_counts_precfiltered <- lapply(piRNA_counts, function(df){
+ df$plus_d <- df$V10-df$V2
+ df$minus_d <- df$V3-df$V11
+ df_plus<-df[which(df$plus_d==2 & df$V8=="+"),]
+ df_minus<-df[which(df$minus_d==(2) & df$V8=="-"),]
+ return(rbind(df_plus,df_minus))
+})
+
+motifdep_piRNA_precursors<-lapply(piRNA_counts_precfiltered,function(df){return(df[c(grep("^21UR-",df$V12),grep("^piRNA_type_1",df$V12)),])})
+motifind_piRNA_precursors<-lapply(piRNA_counts_precfiltered,function(df){return(df[grep("^piRNA_type_2",df$V12),])})
+
+for (i in c(14:29)){
+  print(names[i])
+  write.table(motifdep_piRNA_precursors[[i]],file=paste(paste("/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig1_Fig3_precursors_analysis/length/precursor_tables/",names[i],sep = ""),".txt",sep=""),quote = FALSE,sep = "\t")
+}
+
+```
+
+# Precursor length distributions
+
+```{r precursor distributions}
+
+library(reshape2)
+library(dplyr)
+
+
+density_plot_for_multiple_samples<-function(dflist,indices,title){
+  length.mlt <- melt(lapply(dflist,function(df){return(df$V4)}))
+  length.mlt$L1 <- as.numeric(length.mlt$L1)
+  length.mlt$sample <- names[length.mlt$L1]
+  
+  length.mlt <- length.mlt[which(length.mlt$L1 %in% indices),]
+  length.mlt$L1 <- as.factor(length.mlt$L1)
+  
+  print(ggplot(length.mlt)+geom_density(aes(x=value,group=sample,col=sample,fill=sample),alpha=0.1)+theme_classic()+
+    ggtitle(title)+xlab("precursor length"))
+}
+
+
+histogram_for_multiple_samples<-function(dflist,indices,title,filename){
+   
+  length.mlt <- melt(lapply(dflist,function(df){return(df$V4)}))
+  length.mlt$L1 <- as.numeric(length.mlt$L1)
+  length.mlt$sample <- names[length.mlt$L1]
+  
+  length.mlt <- length.mlt[which(length.mlt$L1 %in% indices),]
+  length.mlt$L1 <- as.factor(length.mlt$L1)
+  
+  kernel_1<-density(length.mlt[which(length.mlt$L1 == levels((length.mlt$L1))[1]),"value"])
+  kernel_2<-density(length.mlt[which(length.mlt$L1 == levels((length.mlt$L1))[2]),"value"])
+  
+  max_1<-kernel_1$x[which(diff(sign(diff(kernel_1$y)))==-2)+1]
+  max_2<-kernel_2$x[which(diff(sign(diff(kernel_2$y)))==-2)+1]
+  
+  #print(paste(paste(names[indices[1]],"max:",sep=" "),max_1,sep=" "))
+  #print(paste(paste(names[indices[2]],"max:",sep=" "),max_2,sep=" "))
+  
+  linedata<-data.frame(xvar1=kernel_1$x,xvar2=kernel_2$x,yvar1=kernel_1$y,yvar2=kernel_2$y)
+  
+  print(ggplot(length.mlt, aes(value)) + 
+    geom_histogram(aes(y = ..density..,fill=sample), position = 'identity',breaks=seq(18,75),alpha=0.5)+
+    theme_classic()+
+    scale_fill_manual(values = c("orange","lightblue"))+
+    ggtitle(title)+xlab("precursor length")+ylab("fraction of sequences")+
+    coord_cartesian(x=c(18,75))+
+    geom_line(data=linedata,aes(x=linedata$xvar1,y=linedata$yvar1,col=names[indices[1]]))+
+    geom_line(data=linedata,aes(x=linedata$xvar2,y=linedata$yvar2,col=names[indices[2]]))+
+    scale_color_manual(values = c("orange","lightblue"))+
+    guides(col=FALSE))
+  ggsave(filename)
+}
+
+
+histogram_for_multiple_samples_totalreads<-function(dflist,indices,title,filename){
+  length.mlt<-data.frame()
+  for (i in seq(length(dflist))){
+    df<-dflist[[i]]
+    df$L1<-rep(i,nrow(df))
+    length.mlt<-rbind(length.mlt,df[,c("L1","V4","V6")])
+  }
+  
+  colnames(length.mlt)[2]<-"value"
+  length.mlt$L1 <- as.numeric(length.mlt$L1)
+  length.mlt$sample <- names[length.mlt$L1]
+  
+  length.mlt <- length.mlt[which(length.mlt$L1 %in% indices),]
+  length.mlt$L1 <- as.factor(length.mlt$L1)
+  
+  totalreads_a<-c()
+  data_a<-length.mlt[which(length.mlt$L1 == levels((length.mlt$L1))[1]),c("value","V6")]
+  for (i in seq(nrow(data_a))){
+    totalreads_a<-c(totalreads_a,rep(data_a[i,"value"],data_a[i,"V6"]))
+  }
+  totalreads_b<-c()
+  data_b<-length.mlt[which(length.mlt$L1 == levels((length.mlt$L1))[2]),c("value","V6")]
+  for (i in seq(nrow(data_b))){
+    totalreads_b<-c(totalreads_b,rep(data_b[i,"value"],data_b[i,"V6"]))
+  }
+  
+  kernel_1<-density(totalreads_a,bw=1)
+  max_1<-kernel_1$x[which(diff(sign(diff(kernel_1$y)))==-2)+1]
+  
+  kernel_2<-density(totalreads_b,bw=1)
+  max_2<-kernel_2$x[which(diff(sign(diff(kernel_2$y)))==-2)+1]
+  
+  #print(paste(paste(names[indices[1]],"max:",sep=" "),max_1,sep=" "))
+  #print(paste(paste(names[indices[2]],"max:",sep=" "),max_2,sep=" "))
+  
+  linedata<-data.frame(xvar1=kernel_1$x,xvar2=kernel_2$x,yvar1=kernel_1$y,yvar2=kernel_2$y)
+
+  print(ggplot(length.mlt, aes(value)) + 
+    geom_histogram(aes(y = ..density..,weight=V6,fill=factor(sample)), position = 'identity',breaks=seq(18,75),alpha=0.5)+
+    theme_classic()+
+    scale_fill_manual(values = c("orange","lightblue"))+
+    ggtitle(title)+xlab("precursor length")+ylab("fraction of sequences")+
+    coord_cartesian(x=c(18,75))+
+    geom_line(data=linedata,aes(x=linedata$xvar1,y=linedata$yvar1,col=names[indices[1]]))+
+    geom_line(data=linedata,aes(x=linedata$xvar2,y=linedata$yvar2,col=names[indices[2]]))+
+    scale_color_manual(values=c("orange","lightblue"))+
+    guides(col=FALSE))
+  
+  ggsave(filename)
+}
+
+
+#plotting pairs of samples
+
+histogram_for_multiple_samples(motifdep_piRNA_precursors,c(7,8),"whole animal","whole_animal_N2_ints11_fracseqs.pdf")
+histogram_for_multiple_samples_totalreads(motifdep_piRNA_precursors,c(7,8),"whole animal","whole_animal_N2_ints11_fracreads.pdf")
+
+histogram_for_multiple_samples(motifdep_piRNA_precursors,c(14,15),"NP","NP_rep1_N2_ints11_fracseqs.pdf")
+histogram_for_multiple_samples(motifdep_piRNA_precursors,c(14,16),"NP","NP_rep1_N2_tfiis_fracseqs.pdf")
+histogram_for_multiple_samples(motifdep_piRNA_precursors,c(14,17),"NP","NP_rep1_N2_tfiis_ints11_fracseqs.pdf")
+histogram_for_multiple_samples(motifdep_piRNA_precursors,c(18,19),"CHR","CHR_rep1_N2_ints11_fracseqs.pdf")
+histogram_for_multiple_samples(motifdep_piRNA_precursors,c(18,20),"CHR","CHR_rep1_N2_tfiis_fracseqs.pdf")
+histogram_for_multiple_samples(motifdep_piRNA_precursors,c(18,21),"CHR","CHR_rep1_N2_tfiis_ints11_fracseqs.pdf")
+
+
+histogram_for_multiple_samples(motifdep_piRNA_precursors,c(22,23),"NP","NP_rep2_N2_ints11_fracseqs.pdf")
+histogram_for_multiple_samples(motifdep_piRNA_precursors,c(22,24),"NP","NP_rep2_N2_tfiis_fracseqs.pdf")
+histogram_for_multiple_samples(motifdep_piRNA_precursors,c(22,25),"NP","NP_rep2_N2_tfiis_ints11_fracseqs.pdf")
+histogram_for_multiple_samples(motifdep_piRNA_precursors,c(26,27),"CHR","CHR_rep2_N2_ints11_fracseqs.pdf")
+histogram_for_multiple_samples(motifdep_piRNA_precursors,c(26,28),"CHR","CHR_rep2_N2_ints11_techrep_fracseqs.pdf")
+histogram_for_multiple_samples(motifdep_piRNA_precursors,c(26,29),"CHR","CHR_rep2_N2_tfiis_ints11_fracseqs.pdf")
+
+
+#plotting multiple samples together
+
+boxplot_for_multiple_samples<-function(dflist,indices,title,filename){
+   
+  length.mlt <- melt(lapply(dflist,function(df){return(df$V4)}))
+  length.mlt$L1 <- as.numeric(length.mlt$L1)
+  length.mlt$sample <- names[length.mlt$L1]
+  
+  length.mlt <- length.mlt[which(length.mlt$L1 %in% indices),]
+  length.mlt$L1 <- factor(length.mlt$L1,levels=indices)
+  
+  print(ggplot(length.mlt) + 
+    geom_boxplot(aes(y=value,x=L1), position = 'identity',binwidth=1,alpha=0.5)+
+    theme_classic()+
+    scale_fill_manual(values = c("orange","lightblue"))+
+    ggtitle(title)+ylab("precursor length")+
+    scale_x_discrete(labels=names[indices])+
+    theme(axis.text.x= element_text(angle=45,vjust=1,hjust=1)))
+  ggsave(filename)
+}
+
+violin_for_multiple_samples<-function(dflist,indices,title,filename){
+   
+  length.mlt <- melt(lapply(dflist,function(df){return(df$V4)}))
+  length.mlt$L1 <- as.numeric(length.mlt$L1)
+  length.mlt$sample <- names[length.mlt$L1]
+  
+  length.mlt <- length.mlt[which(length.mlt$L1 %in% indices),]
+  length.mlt$L1 <- factor(length.mlt$L1,levels=indices)
+  
+  print(ggplot(length.mlt) + 
+    geom_violin(aes(y=value,x=L1,fill=L1), position = 'identity',bw=3,alpha=0.5)+
+    theme_classic()+
+    ggtitle(title)+ylab("precursor length")+
+    scale_x_discrete(labels=names[indices])+
+    theme(axis.text.x= element_text(angle=45,vjust=1,hjust=1)))
+}
+
+
+boxplot_for_multiple_samples(motifdep_piRNA_precursors,c(1:6),title="whole animal","precursor_length_increase_ints11RNAi.pdf")
+violin_for_multiple_samples(motifdep_piRNA_precursors,c(1:6),title="whole animal","precursor_length_increase_ints11RNAi_violin.pdf")
+
+boxplot_for_multiple_samples(motifdep_piRNA_precursors,c(14:29),title="fractionation experiment","precursor_length_fractionationexp.pdf")
+violin_for_multiple_samples(motifdep_piRNA_precursors,c(14:29),title="fractionation experiment","precursor_length_fractionationexp_violin.pdf")
+
+```
+
+
+Here I combined the data from the two replicates in two ways:
+  1. computing the distributions separately and averaging the density at each length (has the disadvantage of weighting equally samples with lots of precursors and samples with lower number of precursors which are more noisy) - "averaged"
+  2. adding the distributions (gives more weight to samples with more depth) - "combined"
+
+
+#### Averaged distributions:
+
+```{r averaged distributions}
+
+histogram_for_multiple_samples_averagedist<-function(dflist,indices,title,filename){
+   
+  length.mlt <- melt(lapply(dflist,function(df){return(df$V4)}))
+  length.mlt$L1 <- as.numeric(length.mlt$L1)
+  length.mlt$sample <- names[length.mlt$L1]
+  
+  hist_cond1 <- hist(length.mlt[which(length.mlt$L1 %in% indices[1]),"value"],breaks=seq(17,76),plot = FALSE)
+  hist_cond2 <- hist(length.mlt[which(length.mlt$L1 %in% indices[2]),"value"],breaks=seq(17,76),plot = FALSE)
+  hist_cond3<- hist(length.mlt[which(length.mlt$L1 %in% indices[3]),"value"],breaks=seq(17,76),plot = FALSE)
+  hist_cond4 <- hist(length.mlt[which(length.mlt$L1 %in% indices[4]),"value"],breaks=seq(17,76),plot = FALSE)
+
+  avg_density_cond12<-0.5*hist_cond1$density+0.5*hist_cond2$density
+  avg_density_cond34<-0.5*hist_cond3$density+0.5*hist_cond4$density
+  
+  length_distributions<-data.frame(
+    density=c(avg_density_cond12,avg_density_cond34),
+    cond=c(rep(names[indices[1]],length(avg_density_cond12)),rep(names[indices[3]],length(avg_density_cond34))),
+    length=c(18:76,18:76))
+  
+  print(ggplot(length_distributions, aes(y=density, x=length,fill=cond)) + 
+    geom_col(position = 'identity',alpha=0.5)+
+    theme_classic()+
+    scale_fill_manual(values = c("orange","lightblue"))+
+    ggtitle(title)+xlab("precursor length")+ylab("fraction of sequences")+
+    coord_cartesian(x=c(18,75)))
+  ggsave(filename)
+}
+
+
+histogram_for_multiple_samples_averagedist(motifdep_piRNA_precursors,c(14,22,15,23),"NP","averaged_NP_N2_ints11_fracseqs.pdf")
+histogram_for_multiple_samples_averagedist(motifdep_piRNA_precursors,c(14,22,16,24),"NP","averaged_NP_N2_tfiis_fracseqs.pdf")
+histogram_for_multiple_samples_averagedist(motifdep_piRNA_precursors,c(14,22,17,25),"NP","averaged_NP_N2_tfiis_ints11_fracseqs.pdf")
+
+histogram_for_multiple_samples_averagedist(motifdep_piRNA_precursors,c(18,26,19,27),"CHR","averaged_CHR_N2_ints11_fracseqs.pdf")
+histogram_for_multiple_samples_averagedist(motifdep_piRNA_precursors,c(18,26,20,28),"CHR","averaged_CHR_N2_tfiis_fracseqs.pdf")
+histogram_for_multiple_samples_averagedist(motifdep_piRNA_precursors,c(18,26,21,29),"CHR","averaged_CHR_N2_tfiis_ints11_fracseqs.pdf")
+
+```
+
+#### Combined distributions
+
+```{r combined}
+
+
+histogram_for_multiple_samples_combineddist_densityfit<-function(dflist,indices,title,filename){
+  
+  length.mlt <- melt(lapply(dflist,function(df){return(df$V4)}))
+  length.mlt$L1 <- as.numeric(length.mlt$L1)
+  length.mlt <- length.mlt[which(length.mlt$L1 %in% indices),]
+
+  length.mlt[which(length.mlt$L1==indices[2]),"L1"]<-indices[1]
+  length.mlt[which(length.mlt$L1==indices[4]),"L1"]<-indices[3]
+  
+  length.mlt$sample <- names[length.mlt$L1]
+  length.mlt$L1 <- as.factor(length.mlt$L1)
+
+  a<-hist(length.mlt[which(length.mlt$L1 == levels((length.mlt$L1))[1]),"value"],plot = FALSE,breaks = seq(130))
+  b<-hist(length.mlt[which(length.mlt$L1 == levels((length.mlt$L1))[2]),"value"],plot = FALSE,breaks = seq(130))
+  
+  kernel_1<-density(length.mlt[which(length.mlt$L1 == levels((length.mlt$L1))[1]),"value"])
+  max_1<-kernel_1$x[which(diff(sign(diff(kernel_1$y)))==-2)+1]
+  
+  kernel_2<-density(length.mlt[which(length.mlt$L1 == levels((length.mlt$L1))[2]),"value"])
+  max_2<-kernel_2$x[which(diff(sign(diff(kernel_2$y)))==-2)+1]
+  
+  print(max_1)
+  print(max_2)
+  
+  linedata<-data.frame(xvar1=kernel_1$x,xvar2=kernel_2$x,yvar1=kernel_1$y,yvar2=kernel_2$y)
+  
+  print(ggplot(length.mlt, aes(value)) + 
+    geom_histogram(aes(y = ..density..,fill=sample), position = 'identity',breaks=a$breaks,alpha=0.5)+
+    theme_classic()+
+    scale_fill_manual(values = c("orange","lightblue"))+
+    ggtitle(title)+xlab("precursor length")+ylab("fraction of sequences")+
+    coord_cartesian(x=c(18,75))+
+    geom_line(data=linedata,aes(x=linedata$xvar1,y=linedata$yvar1,col=names[indices[1]]))+
+    geom_line(data=linedata,aes(x=linedata$xvar2,y=linedata$yvar2,col=names[indices[3]]))+
+    scale_color_manual(values=c("orange","lightblue"))+
+    guides(col=FALSE))
+  ggsave(filename)
+
+}
+
+
+histogram_for_multiple_samples_combineddist_densityfit(motifdep_piRNA_precursors,c(14,22,18,26),"NP_vs_CHR","combined_NP_vs_CHR_N2EV_fracseqs.pdf")
+
+histogram_for_multiple_samples_combineddist_densityfit(motifdep_piRNA_precursors,c(14,22,15,23),"NP","combined_NP_N2_ints11_fracseqs.pdf")
+histogram_for_multiple_samples_combineddist_densityfit(motifdep_piRNA_precursors,c(14,22,16,24),"NP","combined_NP_N2_tfiis_fracseqs.pdf")
+histogram_for_multiple_samples_combineddist_densityfit(motifdep_piRNA_precursors,c(14,22,17,25),"NP","combined_NP_N2_tfiis_ints11_fracseqs.pdf")
+
+histogram_for_multiple_samples_combineddist_densityfit(motifdep_piRNA_precursors,c(18,26,19,27),"CHR","combined_CHR_N2_ints11_fracseqs.pdf")
+histogram_for_multiple_samples_combineddist_densityfit(motifdep_piRNA_precursors,c(18,26,20,28),"CHR","combined_CHR_N2_tfiis_fracseqs.pdf")
+histogram_for_multiple_samples_combineddist_densityfit(motifdep_piRNA_precursors,c(18,26,21,29),"CHR","combined_CHR_N2_tfiis_ints11_fracseqs.pdf")
+
+```
+
+Here I bootstrap the combined distributions of chromatin bound precursors in order to estimate how reliable the peak position is. I do 2000 bootstrap repeats, sampling 3000 total precursor sequences, without replacement, and with a sampling probability proportional to the abundance of each sequence in the set.
+
+```{r bootstrap analysis for the position of peaks}
+
+#setting up the function to find maxima
+getmaxima<-function(df){
+df<-df[-which(df$V4<23),]
+hist(df$V4,breaks = seq(0,75),freq = FALSE)
+lines(density(df$V4),col="green")
+kernel<-density(df$V4)
+maxima<-kernel$x[which(diff(sign(diff(kernel$y)))==-2)+1]
+return(maxima)
+}
+maxima<-lapply(motifdep_piRNA_precursors[c(18:21,26:29)], FUN = getmaxima)
+
+getmaxima_bootstrap<-function(df,nboots,nprecs){
+
+df<-df[-which(df$V4<23),]
+maxs_peak1<-c()
+maxs_peak2<-c()
+
+for (i in seq(nboots)){
+
+df_sample<-sample(df$V4,size = nprecs,prob = df$V6)
+if (i<11){ 
+hist(df_sample,breaks = seq(0,75),freq = FALSE,plot=FALSE)
+lines(density(df_sample),col="green")
+}
+kernel<-density(df_sample)
+maxima<-kernel$x[which(diff(sign(diff(kernel$y)))==-2)+1]
+
+maxs_peak1<-c(maxs_peak1,maxima[1])
+maxs_peak2<-c(maxs_peak2,maxima[2])
+}
+return(data.frame(peak1=maxs_peak1,peak2=maxs_peak2))
+}
+
+
+chbound_precursors<-motifdep_piRNA_precursors[c(18:21,26:29)]
+chbound_precursors_repscombined<-list(rbind(chbound_precursors[[1]],chbound_precursors[[5]]),rbind(chbound_precursors[[2]],chbound_precursors[[6]]),rbind(chbound_precursors[[3]],chbound_precursors[[7]]),rbind(chbound_precursors[[4]],chbound_precursors[[8]]))
+
+
+for (i in seq(4)){print(nrow(chbound_precursors_repscombined[[i]]))}
+bootstrapped_peaks<-lapply(chbound_precursors_repscombined,FUN=getmaxima_bootstrap,nboots=2000,nprecs=3000)
+
+
+peak1_data<-length.mlt <- melt(lapply(bootstrapped_peaks,function(df){return(df$peak1)}))
+peak2_data<-length.mlt <- melt(lapply(bootstrapped_peaks,function(df){return(df$peak2)}))
+
+ggplot(peak1_data) + 
+    geom_boxplot(aes(y = value,x=as.factor(L1)),outlier.shape = NA)+
+    theme_classic()+
+    xlab("sample")+ylab("peak position")
+ggplot(peak2_data) + 
+    geom_boxplot(aes(y = value,x=as.factor(L1)),outlier.shape = NA)+
+    theme_classic()+
+    xlab("sample")+ylab("peak position")
+
+
+data_summary <- function(x) {
+   m <- mean(x)
+   ymin <- m-sd(x)
+   ymax <- m+sd(x)
+   return(c(y=m,ymin=ymin,ymax=ymax))
+}
+
+ggplot(peak1_data,aes(y = value,x=as.factor(L1))) + 
+    geom_violin(draw_quantiles = NULL,trim=FALSE,bw=0.075)+
+    theme_classic()+
+    xlab("sample")+ylab("peak position")+
+    stat_summary(fun.data=data_summary)
+ggsave("bootstrap_precursorpeaks_peak1_violin.pdf")
+
+ggplot(peak2_data,aes(y = value,x=as.factor(L1))) + 
+    geom_violin(draw_quantiles = NULL, trim=FALSE,bw=0.075)+
+    theme_classic()+
+    xlab("sample")+ylab("peak position")+
+    stat_summary(fun.data=data_summary)
+ggsave("bootstrap_precursorpeaks_peak2_violin.pdf")
+
+
+ggplot(peak1_data,aes(y = value,x=as.factor(L1))) + 
+    geom_boxplot(outlier.shape = NA)+
+    theme_classic()+
+    xlab("sample")+ylab("peak position")
+ggsave("bootstrap_precursorpeaks_peak1_boxplot.pdf")
+
+ggplot(peak2_data,aes(y = value,x=as.factor(L1))) + 
+    geom_boxplot(outlier.shape = NA)+
+    theme_classic()+
+    xlab("sample")+ylab("peak position")
+ggsave("bootstrap_precursorpeaks_peak2_boxplot.pdf")
+
+
+```
+
+
+```{r plot all pairs of NP-chr length distributions}
+
+lendist_npchr_pairs<-function(dflist,filename){
+   
+  length.mlt <- melt(lapply(dflist,function(df){return(df$V4)}))
+  length.mlt$L1 <- as.numeric(length.mlt$L1)
+  length.mlt$sample <- names[length.mlt$L1]
+  length.mlt$L1 <- as.factor(length.mlt$L1)
+  
+  length.mlt<-length.mlt[which(length.mlt$L1 %in% c(14:29)),]
+  length.mlt$L1<-factor(length.mlt$L1,levels=c(14,18,15,19,16,20,17,21,22,26,23,27,24,28,25,29))
+  
+  print(ggplot(length.mlt) + 
+    geom_boxplot(aes(y = value,x=L1),outlier.shape = NA)+
+    theme_classic()+
+    xlab("sample")+ylab("precursor length")+
+    scale_x_discrete(labels=names[c(14,18,15,19,16,20,17,21,22,26,23,27,24,28,25,29)])+
+    theme(axis.text.x= element_text(angle=45,vjust=1,hjust=1)))
+    ggsave("npchr_pairs_lendist.pdf")
+  
+    print(ggplot(length.mlt) + 
+    geom_violin(aes(y = value,x=L1,fill=L1),outlier.shape = NA)+
+    theme_classic()+
+    xlab("sample")+ylab("precursor length")+
+    scale_x_discrete(labels=names[c(14,18,15,19,16,20,17,21,22,26,23,27,24,28,25,29)])+
+    theme(axis.text.x= element_text(angle=45,vjust=1,hjust=1)))
+    ggsave("npchr_pairs_lendist_violin.pdf")
+
+}
+
+lendist_npchr_pairs(motifdep_piRNA_precursors)
+
+
+```
+
+
+```{r long fraction}
+
+piRNA_long_fraction_numseqs<- data.frame(fraction=unlist(lapply(motifdep_piRNA_precursors, function(df){
+  return(nrow(df[which(df$V4>41),])/nrow(df))})),names=factor(names,levels=names))
+ggplot(piRNA_long_fraction_numseqs)+geom_col(aes(y=fraction,x=names))+
+    theme_classic()+
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+    ylab("fraction of precursors>41nt")
+
+
+```
+
+
+```{r length distributions for pausing strength bins}
+
+pausing_signal_strength<-read.table("/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Reference_pausing_signal_strength/all_pis_typeI_pausingscores.bed",header=TRUE)
+pausing_signal_strength<-pausing_signal_strength[,c(4,7:12)]
+
+pausing_signal_strength$tm_upstream_bins<-factor(pausing_signal_strength$tm_upstream_bins,levels =c("(-316,-60.4]","(-60.4,-18.9]","(-18.9,16.5]","(16.5,59.1]","(59.1,307]"))
+pausing_signal_strength$tm_downstream_bins<-factor(pausing_signal_strength$tm_downstream_bins,levels =c("(-713,-94.8]","(-94.8,-18.3]","(-18.3,39.8]","(39.8,101]","(101,412]"))
+pausing_signal_strength$tm_total_bins<-factor(pausing_signal_strength$tm_total_bins,levels =c("(-620,-108]","(-108,-26.4]","(-26.4,40.1]","(40.1,112]","(112,486]"))
+
+motifdep_piRNA_precursors_pausingbins<-lapply(motifdep_piRNA_precursors,function(df){return(merge(df,pausing_signal_strength,by.x="V12",by.y="V4",all.x=TRUE))})
+
+
+histograms_pausing_bins<-function(df,title,filename){
+  
+  df_total<-df[which(df$tm_total_bins=="(-620,-108]" | df$tm_total_bins=="(112,486]"),]
+  
+  df_total_low<-df[which(df$tm_total_bins=="(-620,-108]"),"V4"]
+  df_total_high<-df[which(df$tm_total_bins=="(112,486]"),"V4"]
+  
+  kernel_1<-density(df_total_low)
+  max_1<-kernel_1$x[which(diff(sign(diff(kernel_1$y)))==-2)+1]
+  kernel_2<-density(df_total_high)
+  max_2<-kernel_2$x[which(diff(sign(diff(kernel_2$y)))==-2)+1]
+  linedata<-data.frame(xvar1=kernel_1$x,xvar2=kernel_2$x,yvar1=kernel_1$y,yvar2=kernel_2$y)
+  print(max_1)
+  print(max_2)
+  
+ggplot(df_total, aes(V4, fill=tm_total_bins)) + 
+    geom_histogram(aes(y = ..count..), position = 'identity',binwidth=1,alpha=0.5)+
+    theme_classic()+
+    scale_fill_manual(values = c("orange","lightblue"))+
+    ggtitle(title)+xlab("precursor length")+ylab("fraction of sequences")+
+    xlim(18,75)+
+    geom_line(data=linedata,aes(x=linedata$xvar1,y=linedata$yvar1*length(df_total_low),fill=NA))+
+    geom_line(data=linedata,aes(x=linedata$xvar2,y=linedata$yvar2*length(df_total_high),fill=NA))
+    ggsave(paste(paste("/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig1_Fig3_precursors_analysis/length/pausing_data/hist_",filename,sep=""),"pdf",sep="."))
+    
+  ggplot(df, aes(y=V4, fill=tm_total_bins))+geom_boxplot()+ggtitle(paste("total Tm",title,sep=" "))+ylab("precursor length")+theme_classic()
+  ggsave(paste(paste("/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig1_Fig3_precursors_analysis/length/pausing_data/boxplots_",filename,sep=""),".pdf",sep="."))
+
+  # df_downstream<-df[which(df$tm_downstream_bins=="(-713,-94.8]" | df$tm_downstream_bins=="(101,412]"),]
+  # print(ggplot(df_downstream, aes(V4, fill=tm_downstream_bins)) + 
+  #   geom_histogram(aes(y = ..count..), position = 'identity',binwidth=1,alpha=0.2)+
+  #   theme_classic()+
+  #   scale_fill_manual(values=c("orange","lightblue"))+
+  #   ggtitle(title)+xlab("precursor length")+
+  #   xlim(18,75))
+  # print(ggplot(df, aes(y=V4, fill=tm_downstream_bins))+geom_boxplot()+ggtitle(paste("downstream Tm",title,sep=" "))+ylab("precursor length"))
+  # 
+}
+
+for (i in seq(1:length(motifdep_piRNA_precursors_pausingbins))){
+  histograms_pausing_bins(motifdep_piRNA_precursors_pausingbins[[i]],names[i],names[i])
+}
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

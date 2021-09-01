@@ -1,0 +1,490 @@
+---
+title: "length_analysis_singleLoci"
+output: html_document
+---
+
+
+```{r load data}
+
+library(ggplot2)
+
+setwd("/Users/ab6415/Documents/Work_laptop_stuff/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig1_Fig3_FigS3_FigS4_precursors_analysis/length/")
+
+piRNA_counts_wholeanimal_E1 <- list.files(path="../counts/wholeworm/",
+    pattern="*pis"); piRNA_counts_wholeanimal_E1<-paste0("../counts/wholeworm/",piRNA_counts_wholeanimal_E1,sep="")
+piRNA_counts_wholeanimal_E1_longreads <- list.files(path="../counts/wholeworm_longreads/",
+    pattern="*pis"); piRNA_counts_wholeanimal_E1_longreads<-paste0("../counts/wholeworm_longreads/",piRNA_counts_wholeanimal_E1_longreads,sep="")
+piRNA_counts_germnuclei_total <- list.files(path="../counts/germnuclei_total/",
+    pattern="*pis"); piRNA_counts_germnuclei_total<-paste0("../counts/germnuclei_total/",piRNA_counts_germnuclei_total,sep="")
+piRNA_counts_germnuclei_fractionation <- list.files(path="../counts/germnuclei_fractionation_rep1/",
+    pattern="*pis"); piRNA_counts_germnuclei_fractionation<-paste0("../counts/germnuclei_fractionation_rep1/",piRNA_counts_germnuclei_fractionation,sep="")
+piRNA_counts_germnuclei_fractionation_rep2 <- list.files(path="../counts/germnuclei_fractionation_rep2/",
+    pattern="*pis"); piRNA_counts_germnuclei_fractionation_rep2<-paste0("../counts/germnuclei_fractionation_rep2/",piRNA_counts_germnuclei_fractionation_rep2,sep="")
+
+
+piRNA_counts_filenames<-c(piRNA_counts_wholeanimal_E1,piRNA_counts_wholeanimal_E1_longreads,piRNA_counts_germnuclei_total,piRNA_counts_germnuclei_fractionation,piRNA_counts_germnuclei_fractionation_rep2)
+piRNA_counts_filenames<-piRNA_counts_filenames[c(1:13,19:21,14:18,27:30,22,23,25,26)]
+
+names <-c("wholeworm_EV_col1","wholeworm_ints11_col1","wholeworm_EV_col2","wholeworm_ints11_col2","wholeworm_EV_96h","wholeworm_ints11_96h","wholeworm_EV_col1_longreads","wholeworm_ints11_col1_longreads","wholeworm_ints11_col2_longreads","germnuclei_total_N2_EV","germnuclei_total_N2_ints11","germnuclei_total_TFIIS_EV","germnuclei_total_TFIIS_ints11","germnuclei_NP_N2_EV","germnuclei_NP_N2_ints11","germnuclei_NP_TFIIS_EV","germnuclei_NP_TFIIS_ints11","germnuclei_CHR_N2_EV","germnuclei_CHR_N2_ints11","germnuclei_CHR_TFIIS_EV","germnuclei_CHR_TFIIS_ints11","germnuclei_rep2_NP_N2_EV","germnuclei_rep2_NP_N2_ints11","germnuclei_rep2_NP_TFIIS_EV","germnuclei_rep2_NP_TFIIS_ints11","germnuclei_rep2_CHR_N2_EV","germnuclei_rep2_CHR_N2_ints11","germnuclei_rep2_CHR_TFIIS_EV","germnuclei_rep2_CHR_TFIIS_ints11")
+
+piRNA_counts_filenames
+names         
+
+piRNA_counts <- lapply(piRNA_counts_filenames,function(i){
+  read.csv(paste(i,sep=""), header=FALSE,sep="\t")
+})
+
+
+piRNA_counts_precfiltered <- lapply(piRNA_counts, function(df){
+ df$plus_d <- df$V10-df$V2
+ df$minus_d <- df$V3-df$V11
+ df_plus<-df[which(df$plus_d==2 & df$V8=="+"),]
+ df_minus<-df[which(df$minus_d==(2) & df$V8=="-"),]
+ return(rbind(df_plus,df_minus))
+})
+
+motifdep_piRNA_precursors<-lapply(piRNA_counts_precfiltered,function(df){return(df[c(grep("^21UR-",df$V12),grep("^piRNA_type_1",df$V12)),])})
+motifind_piRNA_precursors<-lapply(piRNA_counts_precfiltered,function(df){return(df[grep("^piRNA_type_2",df$V12),])})
+
+
+
+```
+
+### Locus-by-locus analysis
+
+
+# Median length shift
+
+```{r median lenshift col}
+
+library(reshape2)
+library(dplyr)
+
+motifdep_piRNA_precursors_data_summary<-lapply(motifdep_piRNA_precursors,function(df){
+  number_seqs<-aggregate(df[,"V12"],by=list(df[,"V12"]),FUN=length)
+  median_length<-aggregate(df[,"V4"],by=list(df[,"V12"]),FUN=median)
+  mean_length<-aggregate(df[,"V4"],by=list(df[,"V12"]),FUN=mean)
+  
+  number_reads<-aggregate(df[,"V6"],by=list(df[,"V12"]),FUN=sum)
+  df_uncol<-df[rep(row.names(df), df$V6),]
+  median_length_numreads<-aggregate(df_uncol[,"V4"],by=list(df_uncol[,"V12"]),FUN=median)
+  mean_length_numreads<-aggregate(df_uncol[,"V4"],by=list(df_uncol[,"V12"]),FUN=mean)
+
+  merged<-data.frame(number_seqs$x,
+                   median_length$x,
+                   mean_length$x,
+                   number_reads$x,
+                   median_length_numreads$x,
+                   mean_length_numreads$x)
+  colnames(merged)<-c("number_seqs","median_length","mean_length","number_reads","median_length_numreads","mean_length_numreads")
+  rownames(merged)<-number_seqs$Group.1
+  return(merged)
+})
+
+
+merged_df<-motifdep_piRNA_precursors_data_summary[[1]]
+colnames(merged_df)<-paste0(names[1],colnames(merged_df))
+for (i in seq(2,length(names))){
+  df<-motifdep_piRNA_precursors_data_summary[[i]]
+  colnames(df)<-paste0(names[i],colnames(df))
+  merged_df<-merge(merged_df,df,by=0,all=TRUE)
+  rownames(merged_df)<-merged_df$Row.names
+  merged_df$Row.names<-NULL
+}
+
+sample_index_to_medianlength_index<-function(index){return((index-1)*6+2)}
+
+lenshift<-function(df,treatment_index,control_index,numseqs_threshold){
+  index1<-sample_index_to_medianlength_index(treatment_index)
+  index2<-sample_index_to_medianlength_index(control_index)
+  df<-df[which(df[,index1-1]>numseqs_threshold & df[,index2-1]>numseqs_threshold),]
+  return(df[,index1]-df[,index2])
+}
+
+test<-merged_df[sample_index_to_medianlength_index(8)]-merged_df[sample_index_to_medianlength_index(7)]
+test<-na.exclude(test$wholeworm_ints11_col1_longreadsmedian_length)
+cor(test,lenshift(merged_df,8,7,0))
+
+median_lenshift<-data.frame(wholeworm_ints11<-merged_df[sample_index_to_medianlength_index(8)]-merged_df[sample_index_to_medianlength_index(7)],
+                            rep1_NP_ints11<-merged_df[sample_index_to_medianlength_index(15)]-merged_df[sample_index_to_medianlength_index(14)],
+                            rep1_NP_tfiis<-merged_df[sample_index_to_medianlength_index(16)]-merged_df[sample_index_to_medianlength_index(14)],
+                            rep1_NP_tfiis_ints11<-merged_df[sample_index_to_medianlength_index(17)]-merged_df[sample_index_to_medianlength_index(14)],
+                            rep1_CHR_ints11<-merged_df[sample_index_to_medianlength_index(19)]-merged_df[sample_index_to_medianlength_index(18)],
+                            rep1_CHR_tfiis<-merged_df[sample_index_to_medianlength_index(20)]-merged_df[sample_index_to_medianlength_index(18)],
+                            rep1_CHR_tfiis_ints11<-merged_df[sample_index_to_medianlength_index(21)]-merged_df[sample_index_to_medianlength_index(18)],
+                            rep2_NP_ints11<-merged_df[sample_index_to_medianlength_index(23)]-merged_df[sample_index_to_medianlength_index(22)],
+                            rep2_NP_tfiis<-merged_df[sample_index_to_medianlength_index(24)]-merged_df[sample_index_to_medianlength_index(22)],
+                            rep2_NP_tfiis_ints11<-merged_df[sample_index_to_medianlength_index(25)]-merged_df[sample_index_to_medianlength_index(22)],
+                            rep2_CHR_ints11<-merged_df[sample_index_to_medianlength_index(27)]-merged_df[sample_index_to_medianlength_index(26)],
+                            rep2_CHR_tfiis<-merged_df[sample_index_to_medianlength_index(28)]-merged_df[sample_index_to_medianlength_index(26)],
+                            rep2_CHR_tfiis_ints11<-merged_df[sample_index_to_medianlength_index(29)]-merged_df[sample_index_to_medianlength_index(26)])
+colnames(median_lenshift)<-names[c(8,15,16,17,19,20,21,23,24,25,27,28,29)]
+
+boxplot(median_lenshift,las=2,cex=0.5,outline=FALSE)
+abline(h=0,col="red",lty="dashed")
+
+library(reshape2)
+median_lenshift.mlt<-melt(median_lenshift)
+ggplot(median_lenshift.mlt)+geom_boxplot(aes(y=value,x=variable),outlier.shape=NA)+
+  coord_cartesian(ylim=c(-25,50))+
+  geom_hline(yintercept = 0,col="red",linetype="dashed")+
+  theme_classic()
+ggplot(median_lenshift.mlt)+geom_violin(aes(y=value,x=variable),outlier.shape=NA)+
+  coord_cartesian(ylim=c(-25,50))+
+  geom_hline(yintercept = 0,col="red",linetype="dashed")+
+  theme_classic()
+
+
+
+
+thr<-0
+median_lenshift_thr<-data.frame(median_length_shift<-c(
+                            lenshift(merged_df,8,7,thr),
+                            lenshift(merged_df,15,14,thr),
+                            lenshift(merged_df,16,14,thr),
+                            lenshift(merged_df,17,14,thr),
+                            lenshift(merged_df,19,18,thr),
+                            lenshift(merged_df,20,18,thr),
+                            lenshift(merged_df,21,18,thr),
+                            lenshift(merged_df,23,22,thr),
+                            lenshift(merged_df,24,22,thr),
+                            lenshift(merged_df,25,22,thr),
+                            lenshift(merged_df,27,26,thr),
+                            lenshift(merged_df,28,26,thr),
+                            lenshift(merged_df,29,26,thr)),
+                            sample<-c(
+                            rep(names[8],length(lenshift(merged_df,8,7,thr))),
+                            rep(names[15],length(lenshift(merged_df,15,14,thr))),
+                            rep(names[16],length(lenshift(merged_df,16,14,thr))),
+                            rep(names[17],length(lenshift(merged_df,17,14,thr))),
+                            rep(names[19],length(lenshift(merged_df,19,18,thr))),
+                            rep(names[20],length(lenshift(merged_df,20,18,thr))),
+                            rep(names[21],length(lenshift(merged_df,21,18,thr))),
+                            rep(names[23],length(lenshift(merged_df,23,22,thr))),
+                            rep(names[24],length(lenshift(merged_df,24,22,thr))),
+                            rep(names[25],length(lenshift(merged_df,25,22,thr))),
+                            rep(names[27],length(lenshift(merged_df,27,26,thr))),
+                            rep(names[28],length(lenshift(merged_df,28,26,thr))),
+                            rep(names[29],length(lenshift(merged_df,29,26,thr)))
+                            ),
+                            fraction<-c(
+                            rep("total",length(lenshift(merged_df,8,7,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,15,14,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,16,14,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,17,14,thr))),
+                            rep("chromatin",length(lenshift(merged_df,19,18,thr))),
+                            rep("chromatin",length(lenshift(merged_df,20,18,thr))),
+                            rep("chromatin",length(lenshift(merged_df,21,18,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,23,22,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,24,22,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,25,22,thr))),
+                            rep("chromatin",length(lenshift(merged_df,27,26,thr))),
+                            rep("chromatin",length(lenshift(merged_df,28,26,thr))),
+                            rep("chromatin",length(lenshift(merged_df,29,26,thr)))
+                            ),
+                            condition<-c(
+                            rep("N2 ints-11 RNAi",length(lenshift(merged_df,8,7,thr))),
+                            rep("N2 ints-11 RNAi",length(lenshift(merged_df,15,14,thr))),
+                            rep("tfiis EV",length(lenshift(merged_df,16,14,thr))),
+                            rep("tfiis ints-11 RNAi",length(lenshift(merged_df,17,14,thr))),
+                            rep("N2 ints-11 RNAi",length(lenshift(merged_df,19,18,thr))),
+                            rep("tfiis EV",length(lenshift(merged_df,20,18,thr))),
+                            rep("tfiis ints-11 RNAi",length(lenshift(merged_df,21,18,thr))),
+                            rep("N2 ints-11 RNAi",length(lenshift(merged_df,23,22,thr))),
+                            rep("tfiis EV",length(lenshift(merged_df,24,22,thr))),
+                            rep("tfiis ints-11 RNAi",length(lenshift(merged_df,25,22,thr))),
+                            rep("N2 ints-11 RNAi",length(lenshift(merged_df,27,26,thr))),
+                            rep("tfiis EV",length(lenshift(merged_df,28,26,thr))),
+                            rep("tfiis ints-11 RNAi",length(lenshift(merged_df,29,26,thr)))
+                            ))
+colnames(median_lenshift_thr)<-c("median length shift","sample","fraction","condition")
+median_lenshift_thr$sample<-factor(median_lenshift_thr$sample,levels = names[c(8,15,16,17,19,20,21,23,24,25,27,28,29)])
+median_lenshift_thr$condition<-factor(median_lenshift_thr$condition,levels=c("N2 ints-11 RNAi","tfiis EV","tfiis ints-11 RNAi"))
+median_lenshift_thr$fraction<-factor(median_lenshift_thr$fraction,levels=c("total","nucleoplasm","chromatin"))
+
+
+ggplot(median_lenshift_thr)+geom_boxplot(aes(y=`median length shift`,x=sample,col=fraction,fill=condition),outlier.shape=NA)+
+  coord_cartesian(ylim=c(-25,50))+
+  scale_fill_manual(values=c(alpha("green",0.2),alpha("red",0.2),alpha("blue",0.2)))+
+  scale_colour_manual(values=c("grey","red","black"))+
+  geom_hline(yintercept = 0,col="red",linetype="dashed")+
+  theme_classic()+
+  ggtitle("median length shift - collapsed sequences")
+
+
+```
+
+
+# Mean length shift
+
+```{r mean lenshift col}
+
+sample_index_to_meanlength_index<-function(index){return((index-1)*6+3)}
+
+lenshift<-function(df,treatment_index,control_index,numseqs_threshold){
+  index1<-sample_index_to_meanlength_index(treatment_index)
+  index2<-sample_index_to_meanlength_index(control_index)
+  df<-df[which(df[,index1-1]>numseqs_threshold & df[,index2-1]>numseqs_threshold),]
+  return(df[,index1]-df[,index2])
+}
+
+
+thr<-0
+mean_lenshift_thr<-data.frame(mean_length_shift<-c(
+                            lenshift(merged_df,8,7,thr),
+                            lenshift(merged_df,15,14,thr),
+                            lenshift(merged_df,16,14,thr),
+                            lenshift(merged_df,17,14,thr),
+                            lenshift(merged_df,19,18,thr),
+                            lenshift(merged_df,20,18,thr),
+                            lenshift(merged_df,21,18,thr),
+                            lenshift(merged_df,23,22,thr),
+                            lenshift(merged_df,24,22,thr),
+                            lenshift(merged_df,25,22,thr),
+                            lenshift(merged_df,27,26,thr),
+                            lenshift(merged_df,28,26,thr),
+                            lenshift(merged_df,29,26,thr)),
+                            sample<-c(
+                            rep(names[8],length(lenshift(merged_df,8,7,thr))),
+                            rep(names[15],length(lenshift(merged_df,15,14,thr))),
+                            rep(names[16],length(lenshift(merged_df,16,14,thr))),
+                            rep(names[17],length(lenshift(merged_df,17,14,thr))),
+                            rep(names[19],length(lenshift(merged_df,19,18,thr))),
+                            rep(names[20],length(lenshift(merged_df,20,18,thr))),
+                            rep(names[21],length(lenshift(merged_df,21,18,thr))),
+                            rep(names[23],length(lenshift(merged_df,23,22,thr))),
+                            rep(names[24],length(lenshift(merged_df,24,22,thr))),
+                            rep(names[25],length(lenshift(merged_df,25,22,thr))),
+                            rep(names[27],length(lenshift(merged_df,27,26,thr))),
+                            rep(names[28],length(lenshift(merged_df,28,26,thr))),
+                            rep(names[29],length(lenshift(merged_df,29,26,thr)))
+                            ),
+                            fraction<-c(
+                            rep("total",length(lenshift(merged_df,8,7,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,15,14,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,16,14,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,17,14,thr))),
+                            rep("chromatin",length(lenshift(merged_df,19,18,thr))),
+                            rep("chromatin",length(lenshift(merged_df,20,18,thr))),
+                            rep("chromatin",length(lenshift(merged_df,21,18,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,23,22,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,24,22,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,25,22,thr))),
+                            rep("chromatin",length(lenshift(merged_df,27,26,thr))),
+                            rep("chromatin",length(lenshift(merged_df,28,26,thr))),
+                            rep("chromatin",length(lenshift(merged_df,29,26,thr)))
+                            ),
+                            condition<-c(
+                            rep("N2 ints-11 RNAi",length(lenshift(merged_df,8,7,thr))),
+                            rep("N2 ints-11 RNAi",length(lenshift(merged_df,15,14,thr))),
+                            rep("tfiis EV",length(lenshift(merged_df,16,14,thr))),
+                            rep("tfiis ints-11 RNAi",length(lenshift(merged_df,17,14,thr))),
+                            rep("N2 ints-11 RNAi",length(lenshift(merged_df,19,18,thr))),
+                            rep("tfiis EV",length(lenshift(merged_df,20,18,thr))),
+                            rep("tfiis ints-11 RNAi",length(lenshift(merged_df,21,18,thr))),
+                            rep("N2 ints-11 RNAi",length(lenshift(merged_df,23,22,thr))),
+                            rep("tfiis EV",length(lenshift(merged_df,24,22,thr))),
+                            rep("tfiis ints-11 RNAi",length(lenshift(merged_df,25,22,thr))),
+                            rep("N2 ints-11 RNAi",length(lenshift(merged_df,27,26,thr))),
+                            rep("tfiis EV",length(lenshift(merged_df,28,26,thr))),
+                            rep("tfiis ints-11 RNAi",length(lenshift(merged_df,29,26,thr)))
+                            ))
+colnames(mean_lenshift_thr)<-c("mean length shift","sample","fraction","condition")
+mean_lenshift_thr$sample<-factor(mean_lenshift_thr$sample,levels = names[c(8,15,16,17,19,20,21,23,24,25,27,28,29)])
+mean_lenshift_thr$condition<-factor(mean_lenshift_thr$condition,levels=c("N2 ints-11 RNAi","tfiis EV","tfiis ints-11 RNAi"))
+mean_lenshift_thr$fraction<-factor(mean_lenshift_thr$fraction,levels=c("total","nucleoplasm","chromatin"))
+
+
+ggplot(mean_lenshift_thr)+geom_boxplot(aes(y=`mean length shift`,x=sample,col=fraction,fill=condition),outlier.shape=NA)+
+  coord_cartesian(ylim=c(-25,50))+
+  scale_fill_manual(values=c(alpha("green",0.2),alpha("red",0.2),alpha("blue",0.2)))+
+  scale_colour_manual(values=c("grey","red","black"))+
+  geom_hline(yintercept = 0,col="red",linetype="dashed")+
+  theme_classic()+
+  ggtitle("mean length shift - collapsed sequences")
+
+
+```
+
+
+# Median length shift
+
+```{r median lenshift uncol}
+
+sample_index_to_medianlengthNumreads_index<-function(index){return((index-1)*6+5)}
+
+lenshift<-function(df,treatment_index,control_index,numseqs_threshold){
+  index1<-sample_index_to_medianlengthNumreads_index(treatment_index)
+  index2<-sample_index_to_medianlengthNumreads_index(control_index)
+  df<-df[which(df[,index1-1]>numseqs_threshold & df[,index2-1]>numseqs_threshold),]
+  return(df[,index1]-df[,index2])
+}
+
+thr<-0
+median_lenshift_thr<-data.frame(median_length_shift<-c(
+                            lenshift(merged_df,8,7,thr),
+                            lenshift(merged_df,15,14,thr),
+                            lenshift(merged_df,16,14,thr),
+                            lenshift(merged_df,17,14,thr),
+                            lenshift(merged_df,19,18,thr),
+                            lenshift(merged_df,20,18,thr),
+                            lenshift(merged_df,21,18,thr),
+                            lenshift(merged_df,23,22,thr),
+                            lenshift(merged_df,24,22,thr),
+                            lenshift(merged_df,25,22,thr),
+                            lenshift(merged_df,27,26,thr),
+                            lenshift(merged_df,28,26,thr),
+                            lenshift(merged_df,29,26,thr)),
+                            sample<-c(
+                            rep(names[8],length(lenshift(merged_df,8,7,thr))),
+                            rep(names[15],length(lenshift(merged_df,15,14,thr))),
+                            rep(names[16],length(lenshift(merged_df,16,14,thr))),
+                            rep(names[17],length(lenshift(merged_df,17,14,thr))),
+                            rep(names[19],length(lenshift(merged_df,19,18,thr))),
+                            rep(names[20],length(lenshift(merged_df,20,18,thr))),
+                            rep(names[21],length(lenshift(merged_df,21,18,thr))),
+                            rep(names[23],length(lenshift(merged_df,23,22,thr))),
+                            rep(names[24],length(lenshift(merged_df,24,22,thr))),
+                            rep(names[25],length(lenshift(merged_df,25,22,thr))),
+                            rep(names[27],length(lenshift(merged_df,27,26,thr))),
+                            rep(names[28],length(lenshift(merged_df,28,26,thr))),
+                            rep(names[29],length(lenshift(merged_df,29,26,thr)))
+                            ),
+                            fraction<-c(
+                            rep("total",length(lenshift(merged_df,8,7,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,15,14,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,16,14,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,17,14,thr))),
+                            rep("chromatin",length(lenshift(merged_df,19,18,thr))),
+                            rep("chromatin",length(lenshift(merged_df,20,18,thr))),
+                            rep("chromatin",length(lenshift(merged_df,21,18,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,23,22,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,24,22,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,25,22,thr))),
+                            rep("chromatin",length(lenshift(merged_df,27,26,thr))),
+                            rep("chromatin",length(lenshift(merged_df,28,26,thr))),
+                            rep("chromatin",length(lenshift(merged_df,29,26,thr)))
+                            ),
+                            condition<-c(
+                            rep("N2 ints-11 RNAi",length(lenshift(merged_df,8,7,thr))),
+                            rep("N2 ints-11 RNAi",length(lenshift(merged_df,15,14,thr))),
+                            rep("tfiis EV",length(lenshift(merged_df,16,14,thr))),
+                            rep("tfiis ints-11 RNAi",length(lenshift(merged_df,17,14,thr))),
+                            rep("N2 ints-11 RNAi",length(lenshift(merged_df,19,18,thr))),
+                            rep("tfiis EV",length(lenshift(merged_df,20,18,thr))),
+                            rep("tfiis ints-11 RNAi",length(lenshift(merged_df,21,18,thr))),
+                            rep("N2 ints-11 RNAi",length(lenshift(merged_df,23,22,thr))),
+                            rep("tfiis EV",length(lenshift(merged_df,24,22,thr))),
+                            rep("tfiis ints-11 RNAi",length(lenshift(merged_df,25,22,thr))),
+                            rep("N2 ints-11 RNAi",length(lenshift(merged_df,27,26,thr))),
+                            rep("tfiis EV",length(lenshift(merged_df,28,26,thr))),
+                            rep("tfiis ints-11 RNAi",length(lenshift(merged_df,29,26,thr)))
+                            ))
+colnames(median_lenshift_thr)<-c("median length shift","sample","fraction","condition")
+median_lenshift_thr$sample<-factor(median_lenshift_thr$sample,levels = names[c(8,15,16,17,19,20,21,23,24,25,27,28,29)])
+median_lenshift_thr$condition<-factor(median_lenshift_thr$condition,levels=c("N2 ints-11 RNAi","tfiis EV","tfiis ints-11 RNAi"))
+median_lenshift_thr$fraction<-factor(median_lenshift_thr$fraction,levels=c("total","nucleoplasm","chromatin"))
+
+
+ggplot(median_lenshift_thr)+geom_boxplot(aes(y=`median length shift`,x=sample,col=fraction,fill=condition),outlier.shape=NA)+
+  coord_cartesian(ylim=c(-25,50))+
+  scale_fill_manual(values=c(alpha("green",0.2),alpha("red",0.2),alpha("blue",0.2)))+
+  scale_colour_manual(values=c("grey","red","black"))+
+  geom_hline(yintercept = 0,col="red",linetype="dashed")+
+  theme_classic()+
+  ggtitle("median length shift - uncollapsed reads")
+
+
+```
+
+
+# Mean length shift - uncollapsed reads
+
+```{r mean lenshift uncol}
+
+sample_index_to_meanlengthNumreads_index<-function(index){return((index-1)*6+6)}
+
+lenshift<-function(df,treatment_index,control_index,numseqs_threshold){
+  index1<-sample_index_to_meanlengthNumreads_index(treatment_index)
+  index2<-sample_index_to_meanlengthNumreads_index(control_index)
+  df<-df[which(df[,index1-1]>numseqs_threshold & df[,index2-1]>numseqs_threshold),]
+  return(df[,index1]-df[,index2])
+}
+
+
+thr<-0
+mean_lenshift_thr<-data.frame(mean_length_shift<-c(
+                            lenshift(merged_df,8,7,thr),
+                            lenshift(merged_df,15,14,thr),
+                            lenshift(merged_df,16,14,thr),
+                            lenshift(merged_df,17,14,thr),
+                            lenshift(merged_df,19,18,thr),
+                            lenshift(merged_df,20,18,thr),
+                            lenshift(merged_df,21,18,thr),
+                            lenshift(merged_df,23,22,thr),
+                            lenshift(merged_df,24,22,thr),
+                            lenshift(merged_df,25,22,thr),
+                            lenshift(merged_df,27,26,thr),
+                            lenshift(merged_df,28,26,thr),
+                            lenshift(merged_df,29,26,thr)),
+                            sample<-c(
+                            rep(names[8],length(lenshift(merged_df,8,7,thr))),
+                            rep(names[15],length(lenshift(merged_df,15,14,thr))),
+                            rep(names[16],length(lenshift(merged_df,16,14,thr))),
+                            rep(names[17],length(lenshift(merged_df,17,14,thr))),
+                            rep(names[19],length(lenshift(merged_df,19,18,thr))),
+                            rep(names[20],length(lenshift(merged_df,20,18,thr))),
+                            rep(names[21],length(lenshift(merged_df,21,18,thr))),
+                            rep(names[23],length(lenshift(merged_df,23,22,thr))),
+                            rep(names[24],length(lenshift(merged_df,24,22,thr))),
+                            rep(names[25],length(lenshift(merged_df,25,22,thr))),
+                            rep(names[27],length(lenshift(merged_df,27,26,thr))),
+                            rep(names[28],length(lenshift(merged_df,28,26,thr))),
+                            rep(names[29],length(lenshift(merged_df,29,26,thr)))
+                            ),
+                            fraction<-c(
+                            rep("total",length(lenshift(merged_df,8,7,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,15,14,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,16,14,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,17,14,thr))),
+                            rep("chromatin",length(lenshift(merged_df,19,18,thr))),
+                            rep("chromatin",length(lenshift(merged_df,20,18,thr))),
+                            rep("chromatin",length(lenshift(merged_df,21,18,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,23,22,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,24,22,thr))),
+                            rep("nucleoplasm",length(lenshift(merged_df,25,22,thr))),
+                            rep("chromatin",length(lenshift(merged_df,27,26,thr))),
+                            rep("chromatin",length(lenshift(merged_df,28,26,thr))),
+                            rep("chromatin",length(lenshift(merged_df,29,26,thr)))
+                            ),
+                            condition<-c(
+                            rep("N2 ints-11 RNAi",length(lenshift(merged_df,8,7,thr))),
+                            rep("N2 ints-11 RNAi",length(lenshift(merged_df,15,14,thr))),
+                            rep("tfiis EV",length(lenshift(merged_df,16,14,thr))),
+                            rep("tfiis ints-11 RNAi",length(lenshift(merged_df,17,14,thr))),
+                            rep("N2 ints-11 RNAi",length(lenshift(merged_df,19,18,thr))),
+                            rep("tfiis EV",length(lenshift(merged_df,20,18,thr))),
+                            rep("tfiis ints-11 RNAi",length(lenshift(merged_df,21,18,thr))),
+                            rep("N2 ints-11 RNAi",length(lenshift(merged_df,23,22,thr))),
+                            rep("tfiis EV",length(lenshift(merged_df,24,22,thr))),
+                            rep("tfiis ints-11 RNAi",length(lenshift(merged_df,25,22,thr))),
+                            rep("N2 ints-11 RNAi",length(lenshift(merged_df,27,26,thr))),
+                            rep("tfiis EV",length(lenshift(merged_df,28,26,thr))),
+                            rep("tfiis ints-11 RNAi",length(lenshift(merged_df,29,26,thr)))
+                            ))
+colnames(mean_lenshift_thr)<-c("mean length shift","sample","fraction","condition")
+mean_lenshift_thr$sample<-factor(mean_lenshift_thr$sample,levels = names[c(8,15,16,17,19,20,21,23,24,25,27,28,29)])
+mean_lenshift_thr$condition<-factor(mean_lenshift_thr$condition,levels=c("N2 ints-11 RNAi","tfiis EV","tfiis ints-11 RNAi"))
+mean_lenshift_thr$fraction<-factor(mean_lenshift_thr$fraction,levels=c("total","nucleoplasm","chromatin"))
+
+
+ggplot(mean_lenshift_thr)+geom_boxplot(aes(y=`mean length shift`,x=sample,col=fraction,fill=condition),outlier.shape=NA)+
+  coord_cartesian(ylim=c(-25,50))+
+  scale_fill_manual(values=c(alpha("green",0.2),alpha("red",0.2),alpha("blue",0.2)))+
+  scale_colour_manual(values=c("grey","red","black"))+
+  geom_hline(yintercept = 0,col="red",linetype="dashed")+
+  theme_classic()+
+  ggtitle("mean length shift - uncollapsed reads")
+
+
+```
