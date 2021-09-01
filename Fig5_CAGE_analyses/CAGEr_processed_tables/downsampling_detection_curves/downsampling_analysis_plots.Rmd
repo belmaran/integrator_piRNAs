@@ -1,0 +1,122 @@
+---
+title: "piRNA downsampling analysis - plotting data"
+author: "Toni Beltran"
+date: "28/01/2020"
+output: html_document
+---
+
+
+
+```{r total read downsampling}
+
+library(ggplot2)
+library(reshape)
+
+setwd("/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig5_CAGE_analyses/CAGEr_processed_tables/downsampling_detection_curves/")
+
+dat_Nreads<-read.table("pidetection_depth_totalreadN_downsampling.txt")
+colnames(dat_Nreads)<-c("other TSSs","typeI","typeII","nreads","sample")
+
+#type I 
+N2_EV<-0.5*dat_Nreads$typeI[which(dat_Nreads$sample=="N2_EV1_star2")]+0.5*dat_Nreads$typeI[which(dat_Nreads$sample=="N2_EV2_star2")]
+N2_ints11RNAi<-0.5*dat_Nreads$typeI[which(dat_Nreads$sample=="N2_RNAi1_star2")]+0.5*dat_Nreads$typeI[which(dat_Nreads$sample=="N2_RNAi2_star2")]
+TFIIS_EV<-dat_Nreads$typeI[which(dat_Nreads$sample=="TFIIS_EV2_star2")]
+TFIIS_ints11RNAi<-0.5*dat_Nreads$typeI[which(dat_Nreads$sample=="TFIIS_RNAi1_star2")]+0.5*dat_Nreads$typeI[which(dat_Nreads$sample=="TFIIS_RNAi2_star2")]
+total<-dat_Nreads$typeI[which(dat_Nreads$sample=="TEV_star2")]
+
+nreads<-dat_Nreads[which(dat_Nreads$sample=="N2_EV1_star2"),"nreads"]
+
+
+dat_Nreads_agg<-melt(data.frame(N2_EV,
+                           N2_ints11RNAi,
+                           TFIIS_EV,
+                           TFIIS_ints11RNAi,
+                           total,
+                           nreads),measure.vars=c("N2_EV","N2_ints11RNAi","TFIIS_EV","TFIIS_ints11RNAi","total"))
+
+ggplot(dat_Nreads_agg)+geom_boxplot(aes(y=value,x=factor(nreads),fill=variable,col=variable),outlier.shape=NA)+theme_classic()+
+  ggtitle("type I piRNAs")+
+  ylab("total detected loci")+
+  ggsave("total_detected_typeIpis_by_readcount.pdf")
+
+
+#type II
+
+N2_EV<-0.5*dat_Nreads$typeII[which(dat_Nreads$sample=="N2_EV1_star2")]+0.5*dat_Nreads$typeII[which(dat_Nreads$sample=="N2_EV2_star2")]
+N2_ints11RNAi<-0.5*dat_Nreads$typeII[which(dat_Nreads$sample=="N2_RNAi1_star2")]+0.5*dat_Nreads$typeII[which(dat_Nreads$sample=="N2_RNAi2_star2")]
+TFIIS_EV<-dat_Nreads$typeII[which(dat_Nreads$sample=="TFIIS_EV2_star2")]
+TFIIS_ints11RNAi<-0.5*dat_Nreads$typeII[which(dat_Nreads$sample=="TFIIS_RNAi1_star2")]+0.5*dat_Nreads$typeII[which(dat_Nreads$sample=="TFIIS_RNAi2_star2")]
+total<-dat_Nreads$typeII[which(dat_Nreads$sample=="TEV_star2")]
+
+nreads<-dat_Nreads[which(dat_Nreads$sample=="N2_EV1_star2"),"nreads"]
+
+
+dat_Nreads_agg<-melt(data.frame(N2_EV,
+                           N2_ints11RNAi,
+                           TFIIS_EV,
+                           TFIIS_ints11RNAi,
+                           total,
+                           nreads),measure.vars=c("N2_EV","N2_ints11RNAi","TFIIS_EV","TFIIS_ints11RNAi","total"))
+
+ggplot(dat_Nreads_agg)+geom_boxplot(aes(y=value,x=factor(nreads),fill=variable,col=variable),outlier.shape=NA)+theme_classic()+
+  ggtitle("type II piRNAs")+
+  ylab("total detected loci")+
+  ggsave("total_detected_typeIIpis_by_readcount.pdf")
+
+```
+
+
+```{r percent downsampling}
+
+dat_percent<-read.table("pidetection_depth_percent_downsampling.txt")
+colnames(dat_percent)<-c("other TSSs","typeI","typeII","percent","sample")
+
+
+#type I 
+N2_EV<-0.5*dat_percent$typeI[which(dat_percent$sample=="N2_EV1_star2")]+0.5*dat_percent$typeI[which(dat_percent$sample=="N2_EV2_star2")]
+N2_ints11RNAi<-0.5*dat_percent$typeI[which(dat_percent$sample=="N2_RNAi1_star2")]+0.5*dat_percent$typeI[which(dat_percent$sample=="N2_RNAi2_star2")]
+TFIIS_EV<-dat_percent$typeI[which(dat_percent$sample=="TFIIS_EV2_star2")]
+TFIIS_ints11RNAi<-0.5*dat_percent$typeI[which(dat_percent$sample=="TFIIS_RNAi1_star2")]+0.5*dat_percent$typeI[which(dat_percent$sample=="TFIIS_RNAi2_star2")]
+total<-dat_percent$typeI[which(dat_percent$sample=="TEV_star2")]
+
+percent<-dat_percent[which(dat_percent$sample=="N2_EV1_star2"),"percent"]
+
+
+dat_percent_agg<-melt(data.frame(N2_EV,
+                           N2_ints11RNAi,
+                           TFIIS_EV,
+                           TFIIS_ints11RNAi,
+                           total,
+                           percent),measure.vars=c("N2_EV","N2_ints11RNAi","TFIIS_EV","TFIIS_ints11RNAi","total"))
+
+ggplot(dat_percent_agg)+geom_boxplot(aes(y=value,x=factor(percent),fill=variable,col=variable),outlier.shape=NA)+theme_classic()+
+  ggtitle("type I piRNAs")+
+  ylab("total detected loci")+
+  ggsave("total_detected_typeIpis_by_percentdownsampled.pdf")
+
+
+#type II
+
+N2_EV<-0.5*dat_percent$typeII[which(dat_percent$sample=="N2_EV1_star2")]+0.5*dat_percent$typeII[which(dat_percent$sample=="N2_EV2_star2")]
+N2_ints11RNAi<-0.5*dat_percent$typeII[which(dat_percent$sample=="N2_RNAi1_star2")]+0.5*dat_percent$typeII[which(dat_percent$sample=="N2_RNAi2_star2")]
+TFIIS_EV<-dat_percent$typeII[which(dat_percent$sample=="TFIIS_EV2_star2")]
+TFIIS_ints11RNAi<-0.5*dat_percent$typeII[which(dat_percent$sample=="TFIIS_RNAi1_star2")]+0.5*dat_percent$typeII[which(dat_percent$sample=="TFIIS_RNAi2_star2")]
+total<-dat_percent$typeII[which(dat_percent$sample=="TEV_star2")]
+
+percent<-dat_percent[which(dat_percent$sample=="N2_EV1_star2"),"percent"]
+
+
+dat_percent_agg<-melt(data.frame(N2_EV,
+                           N2_ints11RNAi,
+                           TFIIS_EV,
+                           TFIIS_ints11RNAi,
+                           total,
+                           percent),measure.vars=c("N2_EV","N2_ints11RNAi","TFIIS_EV","TFIIS_ints11RNAi","total"))
+
+ggplot(dat_percent_agg)+geom_boxplot(aes(y=value,x=factor(percent),fill=variable,col=variable),outlier.shape=NA)+theme_classic()+
+  ggtitle("type II piRNAs")+
+  ylab("total detected loci")+
+  ggsave("total_detected_typeIIpis_by_percentdownsampled.pdf")
+
+```
+

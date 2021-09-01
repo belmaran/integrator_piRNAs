@@ -1,0 +1,27 @@
+---
+title: "pis detected CAGE"
+author: "Toni Beltran"
+date: "31/01/2020"
+output: html_document
+---
+
+
+```{r pis detected by CAGE}
+
+library(ggplot2)
+
+setwd("/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig5_CAGE_analyses/CAGEr_processed_tables/pi_landscape_heatmap")
+
+scrna_data<-read.table("chbound_scRNA_counts_typeI_and_typeIIpis.txt")
+scrna_data$mean<-apply(scrna_data,MARGIN=1,FUN=mean)
+
+cage_detected<-read.table("pis_detected_CAGE_ids")
+
+scrna_data$CAGEdetected<-rep("no",nrow(scrna_data))
+scrna_data[which(rownames(scrna_data) %in% cage_detected$V1),"CAGEdetected"]<-"yes"
+
+ggplot(scrna_data)+geom_boxplot(aes(x=CAGEdetected,y=mean),outlier.shape = NA)+
+  coord_cartesian(ylim=c(0, 8))+ylab("mean scRNA expression")+ggtitle("Type I piRNAs")+theme_classic()
+
+```
+

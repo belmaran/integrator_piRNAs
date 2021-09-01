@@ -1,0 +1,130 @@
+---
+title: "pausing_signal_strength_readthroughpis"
+output: html_document
+---
+
+```{r setup}
+
+setwd("/Users/ab6415/Documents/Work_laptop_stuff/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig5_CAGE_analyses/CAGEr_processed_tables/")
+
+cagedata_pis<-read.table("piRNAnormalisedExpression.txt",header=TRUE)
+cagedata_pis<-cagedata_pis[which(cagedata_pis$dist==2),]
+
+library(tidyr)
+library(ggplot2)
+
+cagedata_cols<- cagedata_pis %>% spread(sample,tags)
+cagedata_cols[is.na(cagedata_cols)]<-0
+cagedata_pis_agg<-aggregate(cagedata_cols[,14:21],by=list(cagedata_cols[,13]),FUN=sum)
+
+
+cagedata_pis[which(cagedata_pis$seqnames.start.end=="chrI,10161941,10161961"),]
+cagedata_pis_agg[which(cagedata_pis_agg$Group.1=="chrI,10161941,10161961"),]
+
+pairwise_fc<-function(df,col1,col2,pseudoTPMs){
+  df<-df[which((df[,col1]+df[,col2])>0),]
+  return(log2(df[,col2]+pseudoTPMs)-log2(df[,col1]+pseudoTPMs))
+}
+
+cagedata_pis_averaged<-data.frame(
+  pos=cagedata_pis_agg$Group.1,
+  N2_EV=0.5*cagedata_pis_agg$N2_EV1_star2+0.5*cagedata_pis_agg$N2_EV2_star2,
+  N2_RNAi=0.5*cagedata_pis_agg$N2_RNAi1_star2+0.5*cagedata_pis_agg$N2_RNAi2_star2,
+  TFIIS_EV=cagedata_pis_agg$TFIIS_EV2_star2,
+  TFIIS_RNAi=0.5*cagedata_pis_agg$TFIIS_RNAi1_star2+0.5*cagedata_pis_agg$TFIIS_RNAi2_star2,
+  total=cagedata_pis_agg$TEV_star2
+)
+
+pos_to_type_mappings<-unique(cagedata_pis[,c("name","seqnames.start.end")])
+
+cagedata_pis_averaged_types<-merge(cagedata_pis_averaged,pos_to_type_mappings,by.x="pos",by.y="seqnames.start.end",all=TRUE)
+table(cagedata_pis_averaged_types$name)
+
+cagedata_pis_averaged_typeI<-cagedata_pis_averaged_types[which(cagedata_pis_averaged_types$name=="21UR" | cagedata_pis_averaged_types$name=="piRNA_type1"),]
+
+cagedata_pis_averaged_typeII<-cagedata_pis_averaged_types[which(cagedata_pis_averaged_types$name=="piRNA_type2"),]
+
+
+write.table(cagedata_pis_averaged_typeI,quote=FALSE,sep="\t",file = "averaged_CAGEsignal_typeIpis.txt")
+format_pos<-read.table("pos_replaced_chr",header=TRUE)
+
+cagedata_pis_averaged_typeI$chr<-format_pos$chr
+cagedata_pis_averaged_typeI$st<-format_pos$st
+cagedata_pis_averaged_typeI$end<-format_pos$end
+cagedata_pis_averaged_typeI$chr<-as.character(cagedata_pis_averaged_typeI$chr)
+cagedata_pis_averaged_typeI$st<-cagedata_pis_averaged_typeI$st-1
+
+pi_ids<-read.table("../../Reference_annotations/all_pis_typeI.bed")
+pi_ids$V1<-as.character(pi_ids$V1)
+
+pis_cagedata_with_ID<-merge(cagedata_pis_averaged_typeI,pi_ids,by.x=c("chr","st"),by.y=c("V1","V2"),all.x=TRUE)
+
+N2_EV<-as.character(pis_cagedata_with_ID[which(pis_cagedata_with_ID$N2_EV>0),"V4"])
+N2_ints11RNAi<-as.character(pis_cagedata_with_ID[which(pis_cagedata_with_ID$N2_RNAi>0),"V4"])
+TFIIS_EV<-as.character(pis_cagedata_with_ID[which(pis_cagedata_with_ID$TFIIS_EV>0),"V4"])
+TFIIS_ints11RNAi<-as.character(pis_cagedata_with_ID[which(pis_cagedata_with_ID$TFIIS_RNAi>0),"V4"])
+all_detected<-as.character(pis_cagedata_with_ID[,"V4"])
+
+
+termination_signal_strength<-read.table("../../Reference_pausing_signal_strength/all_pis_typeI_pausingscores.bed",header=TRUE)
+termination_signal_strength$V4<-as.character(termination_signal_strength$V4)
+
+boxplot(termination_signal_strength$total,
+        termination_signal_strength[which(termination_signal_strength$V4 %in% N2_EV),"total"],
+        termination_signal_strength[which(termination_signal_strength$V4 %in% N2_ints11RNAi),"total"],
+        termination_signal_strength[which(termination_signal_strength$V4 %in% TFIIS_EV),"total"],
+        termination_signal_strength[which(termination_signal_strength$V4 %in% TFIIS_ints11RNAi),"total"],
+        names=c("all loci","N2 EV","N2 ints-11 RNAi","TFIIS","TFIIS ints-11 RNAi"),
+        outline=FALSE,main="total Tm")
+
+boxplot(termination_signal_strength$tm_downstream,
+        termination_signal_strength[which(termination_signal_strength$V4 %in% N2_EV),"tm_downstream"],
+        termination_signal_strength[which(termination_signal_strength$V4 %in% N2_ints11RNAi),"tm_downstream"],
+        termination_signal_strength[which(termination_signal_strength$V4 %in% TFIIS_EV),"tm_downstream"],
+        termination_signal_strength[which(termination_signal_strength$V4 %in% TFIIS_ints11RNAi),"tm_downstream"],
+        names=c("all loci","N2 EV","N2 ints-11 RNAi","TFIIS","TFIIS ints-11 RNAi"),
+        outline=FALSE,main="downstream Tm",las=2,ylab="termination signal strength (deltaTm)")
+
+wilcox.test(termination_signal_strength$tm_downstream,
+            termination_signal_strength[which(termination_signal_strength$V4 %in% N2_EV),"tm_downstream"])
+wilcox.test(termination_signal_strength$tm_downstream,
+            termination_signal_strength[which(termination_signal_strength$V4 %in% N2_ints11RNAi),"tm_downstream"])
+wilcox.test(termination_signal_strength$tm_downstream,
+            termination_signal_strength[which(termination_signal_strength$V4 %in% TFIIS_EV),"tm_downstream"])
+wilcox.test(termination_signal_strength$tm_downstream,
+            termination_signal_strength[which(termination_signal_strength$V4 %in% TFIIS_ints11RNAi),"tm_downstream"])
+
+
+boxplot(termination_signal_strength$tm_upstream,
+        termination_signal_strength[which(termination_signal_strength$V4 %in% N2_EV),"tm_upstream"],
+        termination_signal_strength[which(termination_signal_strength$V4 %in% N2_ints11RNAi),"tm_upstream"],
+        termination_signal_strength[which(termination_signal_strength$V4 %in% TFIIS_EV),"tm_upstream"],
+        termination_signal_strength[which(termination_signal_strength$V4 %in% TFIIS_ints11RNAi),"tm_upstream"],
+        names=c("all loci","N2 EV","N2 ints-11 RNAi","TFIIS","TFIIS ints-11 RNAi"),
+        outline=FALSE,main="upstream Tm")
+
+
+  
+```
+
+
+```{r subset downstream seq bed based on CAGE detection}
+
+
+down_bed<-read.table("all_pis_typeI_downstream50bp.bed")
+down_bed$V4<-as.character(down_bed$V4)
+down_bed_detectedpis<-down_bed[which(down_bed$V4 %in% all_detected),]
+write.table(down_bed_detectedpis,quote = FALSE,col.names=FALSE,row.names=FALSE,sep="\t",
+            file="all_pis_typeI_downstream50bp.detectedpis.bed")
+
+
+
+
+
+
+
+
+
+```
+
+

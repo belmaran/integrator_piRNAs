@@ -1,0 +1,102 @@
+---
+title: "downsampling analysis"
+author: "Toni Beltran"
+date: "22/01/2020"
+output: html_document
+---
+
+```{r load data}
+
+setwd("/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig5_CAGE_analyses/CAGEr_processed_tables/downsampling_detection_curves/")
+
+tss_rawtags<-read.table("../CTSSrawTags.csv",sep=",",header=TRUE,row.names=1)
+
+pis<-read.table("../piRNAnormalisedExpression.csv",sep=",",header=TRUE,row.names=1)
+pis<-pis[which(pis$dist==2),]
+pis_typeI<-pis[which(pis$dist==2 & (pis$name=="21UR" | pis$name=="piRNA_type1")),]
+nrow(unique(pis_typeI[,1:3]))
+
+pi_tss<-unique(pis[,c("chr","pos","strand","name")])
+
+tss_rawtags_pi_info<-merge(tss_rawtags,pi_tss,by.x=c("chr","pos","strand"),by.y=c("chr","pos","strand"),all.x=TRUE)
+
+nrow(pi_tss)
+nrow(tss_rawtags)
+nrow(tss_rawtags_pi_info)
+
+tss_rawtags_pi_info$name<-as.character(tss_rawtags_pi_info$name)
+tss_rawtags_pi_info$name[is.na(tss_rawtags_pi_info$name)]<-"noPieInDaSky"
+
+table(tss_rawtags_pi_info$name)
+
+colSums(tss_rawtags_pi_info[,c(4:11)])
+
+nrow(tss_rawtags_pi_info[which(tss_rawtags_pi_info$N2_EV1_star2>0 & tss_rawtags_pi_info$name=="21UR"),])
+
+```
+
+Analysis:
+  - Downsample to a given number of reads for all samples (to have comparable graph) --> 50k, 40k, 30k, 20k, 10k, 5k
+  - Downsample to fraction of the total for the ints-11 RNAi samples (from 100% to 5% of total)
+
+
+```{r percentage based downsampling}
+
+downsample_percentage_and_recover_picounts<-function(df,colNames,reps){
+  
+  numpi_table<-c()
+  
+  for (colName in colNames){
+  sub_df<-df[,c("chr","pos","strand","name",colName)]
+  
+  for (perc in c(1,2,3,5,10,20,30,40,50,60,70,80,90,95,100)){
+        N<-round(sum(sub_df[,5])*perc/100)
+        for (rep in seq(reps)){
+            dfsample<-unique(sub_df[sample(1:nrow(sub_df),size=N,replace=TRUE,prob=sub_df[,5]),c("chr","pos","strand","name")])
+            typeI<-nrow(dfsample[which(dfsample$name=="21UR" | dfsample$name=="piRNA_type1"),])
+            typeII<-nrow(dfsample[which(dfsample$name=="piRNA_type2"),])
+            nopi<-nrow(dfsample[which(dfsample$name=="noPieInDaSky"),])
+            numpi_table<-rbind(numpi_table,c(nopi,typeI,typeII,perc,colName))
+        }
+        print(c(colName,paste(toString(perc),"completed",sep=" ")))
+  }}
+  return(numpi_table)
+}
+
+percentage_based_downsampling_table<-downsample_percentage_and_recover_picounts(tss_rawtags_pi_info,colnames(tss_rawtags_pi_info)[4:11],15)
+write.table(percentage_based_downsampling_table,file ="pidetection_depth_percent_downsampling.txt")
+```
+
+
+```{r read number based downsampling}
+
+downsample_Nreads_and_recover_picounts<-function(df,colNames,reps){
+  
+  numpi_table<-c()
+  
+  for (colName in colNames){
+  sub_df<-df[,c("chr","pos","strand","name",colName)]
+  for (N in c(50000,100000,250000,500000,1000000,2000000,3000000,4000000,5000000)){
+        for (rep in seq(reps)){
+            dfsample<-unique(sub_df[sample(1:nrow(sub_df),size=N,replace=TRUE,prob=sub_df[,5]),c("chr","pos","strand","name")])
+            typeI<-nrow(dfsample[which(dfsample$name=="21UR" | dfsample$name=="piRNA_type1"),])
+            typeII<-nrow(dfsample[which(dfsample$name=="piRNA_type2"),])
+            nopi<-nrow(dfsample[which(dfsample$name=="noPieInDaSky"),])
+            numpi_table<-rbind(numpi_table,c(nopi,typeI,typeII,N,colName))
+        }
+        print(c(colName,paste(toString(N),"reads - completed",sep=" ")))
+  }}
+  return(numpi_table)
+}
+
+totalreads_based_downsampling_table<-downsample_Nreads_and_recover_picounts(tss_rawtags_pi_info,colnames(tss_rawtags_pi_info)[4:11],15)
+write.table(totalreads_based_downsampling_table,file="pidetection_depth_totalreadN_downsampling.txt")
+
+```
+
+
+
+
+
+
+

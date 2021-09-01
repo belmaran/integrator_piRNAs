@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<Session genome="/Users/ab6415/Bioinformatics/Analysis/prepare_annotations_for_mapping/c_elegans.PRJNA13758.WS252.genomic.fa" hasGeneTrack="false" hasSequenceTrack="true" locus="IV:6076197-6076420" nextAutoscaleGroup="3" path="/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/integrator_CAGE_tophat/bw_files/21UR-6722.svg.xml" version="8">
+    <Resources>
+        <Resource path="/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/integrator_CAGE_tophat/bw_files/averaged/N2_EV_avg.bw"/>
+        <Resource path="/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/integrator_CAGE_tophat/bw_files/averaged/N2_RNAi_avg.bw"/>
+        <Resource path="/Users/ab6415/Bioinformatics/Analysis/prepare_annotations_for_mapping/FINAL_FILTERED_FASTA-GFF/without_gene_attributes/c_elegans.PRJNA13758.WS252.annotations.mRNA_longest.gff3"/>
+        <Resource path="/Users/ab6415/Bioinformatics/Data/chromatin_domains_liftover/beds_for_Fadri/chromdomains_WS252_color.bed"/>
+        <Resource path="/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/integrator_CAGE_tophat/bw_files/averaged/TFIIS_RNAi_avg.bw"/>
+        <Resource path="/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/integrator_CAGE_tophat/bw_files/averaged/totalRNA_EV_singlerep.bw"/>
+        <Resource path="/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/piRNA_reference/c_elegans_snRNAs.bed"/>
+        <Resource path="/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/integrator_CAGE_tophat/bw_files/averaged/TFIIS_EV_singlerep.bw"/>
+        <Resource path="/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/piRNA_reference/all_pis.bed"/>
+    </Resources>
+    <Panel height="233" name="DataPanel" width="1358">
+        <Track altColor="0,0,178" autoScale="false" clazz="org.broad.igv.track.DataSourceTrack" color="0,0,178" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/integrator_CAGE_tophat/bw_files/averaged/N2_EV_avg.bw" name="N2_EV_avg.bw" normalize="false" renderer="BAR_CHART" sortable="true" visible="true" windowFunction="mean">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="0.10045" minimum="0.0" type="LINEAR"/>
+        </Track>
+        <Track altColor="0,0,178" autoScale="false" clazz="org.broad.igv.track.DataSourceTrack" color="0,0,178" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/integrator_CAGE_tophat/bw_files/averaged/N2_RNAi_avg.bw" name="N2_RNAi_avg.bw" normalize="false" renderer="BAR_CHART" sortable="true" visible="true" windowFunction="mean">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="0.10045" minimum="0.0" type="LINEAR"/>
+        </Track>
+        <Track altColor="0,0,178" autoScale="false" clazz="org.broad.igv.track.DataSourceTrack" color="0,0,178" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/integrator_CAGE_tophat/bw_files/averaged/TFIIS_EV_singlerep.bw" name="TFIIS_EV_singlerep.bw" normalize="false" renderer="BAR_CHART" sortable="true" visible="true" windowFunction="mean">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="0.10045" minimum="0.0" type="LINEAR"/>
+        </Track>
+        <Track altColor="0,0,178" autoScale="false" clazz="org.broad.igv.track.DataSourceTrack" color="0,0,178" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/integrator_CAGE_tophat/bw_files/averaged/TFIIS_RNAi_avg.bw" name="TFIIS_RNAi_avg.bw" normalize="false" renderer="BAR_CHART" sortable="true" visible="true" windowFunction="mean">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="0.10045" minimum="0.0" type="LINEAR"/>
+        </Track>
+        <Track altColor="0,0,178" autoScale="false" clazz="org.broad.igv.track.DataSourceTrack" color="0,0,178" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/integrator_CAGE_tophat/bw_files/averaged/totalRNA_EV_singlerep.bw" name="totalRNA_EV_singlerep.bw" normalize="false" renderer="BAR_CHART" sortable="true" visible="true" windowFunction="mean">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="0.10045" minimum="0.0" type="LINEAR"/>
+        </Track>
+    </Panel>
+    <Panel height="348" name="FeaturePanel" width="1358">
+        <Track altColor="0,0,178" autoScale="false" color="0,0,178" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="Reference sequence" name="Reference sequence" sortable="false" visible="true"/>
+        <Track altColor="0,0,178" autoScale="false" clazz="org.broad.igv.track.FeatureTrack" color="0,0,178" colorScale="ContinuousColorScale;0.0;4.0;255,255,255;0,0,178" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/piRNA_reference/c_elegans_snRNAs.bed" name="c_elegans_snRNAs.bed" renderer="BASIC_FEATURE" sortable="false" visible="true" windowFunction="count">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="4.0" minimum="0.0" type="LINEAR"/>
+        </Track>
+        <Track altColor="0,0,178" autoScale="false" clazz="org.broad.igv.track.FeatureTrack" color="0,0,178" colorScale="ContinuousColorScale;0.0;49.0;255,255,255;0,0,178" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/piRNA_reference/all_pis.bed" name="all_pis.bed" renderer="BASIC_FEATURE" sortable="false" visible="true" windowFunction="count">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="49.0" minimum="0.0" type="LINEAR"/>
+        </Track>
+        <Track altColor="0,0,178" autoScale="false" clazz="org.broad.igv.track.FeatureTrack" color="0,0,178" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="/Users/ab6415/Bioinformatics/Data/chromatin_domains_liftover/beds_for_Fadri/chromdomains_WS252_color.bed" name="chromdomains_WS252_color.bed" renderer="BASIC_FEATURE" sortable="false" visible="true" windowFunction="count"/>
+        <Track altColor="0,0,178" autoScale="false" clazz="org.broad.igv.track.FeatureTrack" color="0,0,178" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="/Users/ab6415/Bioinformatics/Analysis/prepare_annotations_for_mapping/FINAL_FILTERED_FASTA-GFF/without_gene_attributes/c_elegans.PRJNA13758.WS252.annotations.mRNA_longest.gff3" name="c_elegans.PRJNA13758.WS252.annotations.mRNA_longest.gff3" renderer="BASIC_FEATURE" sortable="false" visible="true" windowFunction="count"/>
+    </Panel>
+    <PanelLayout dividerFractions="0.39965986394557823"/>
+    <HiddenAttributes>
+        <Attribute name="DATA FILE"/>
+        <Attribute name="DATA TYPE"/>
+        <Attribute name="NAME"/>
+    </HiddenAttributes>
+</Session>

@@ -1,0 +1,123 @@
+---
+title: "CAGEsignal_fc_piRNAs"
+author: "Toni Beltran"
+date: "13/01/2020"
+output: html_document
+---
+ 
+# Changes in CAGE signal upon Integrator knockdown 
+
+Here I load the CAGEr processed data - note that piRNA and CAGE TSS positions are defined as a 1-base format (different from bed). I recover CAGE tags initiating at the -2 position from 21U-RNAs and calculate the changes in abundance in all conditions relative to N2 empty vector.
+
+```{r load data}
+
+setwd("/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig5_CAGE_analyses/CAGEr_processed_tables/")
+cagedata_pis<-read.table("piRNAnormalisedExpression.txt",header=TRUE)
+cagedata_pis<-cagedata_pis[which(cagedata_pis$dist==2),]
+
+library(tidyr)
+library(ggplot2)
+
+cagedata_cols<- cagedata_pis %>% spread(sample,tags)
+cagedata_cols[is.na(cagedata_cols)]<-0
+cagedata_pis_agg<-aggregate(cagedata_cols[,14:21],by=list(cagedata_cols[,13]),FUN=sum)
+
+
+cagedata_pis[which(cagedata_pis$seqnames.start.end=="chrI,10161941,10161961"),]
+cagedata_pis_agg[which(cagedata_pis_agg$Group.1=="chrI,10161941,10161961"),]
+
+pairwise_fc<-function(df,col1,col2,pseudoTPMs){
+  df<-df[which((df[,col1]+df[,col2])>0),]
+  return(log2(df[,col2]+pseudoTPMs)-log2(df[,col1]+pseudoTPMs))
+}
+
+cagedata_pis_averaged<-data.frame(
+  pos=cagedata_pis_agg$Group.1,
+  N2_EV=0.5*cagedata_pis_agg$N2_EV1_star2+0.5*cagedata_pis_agg$N2_EV2_star2,
+  N2_RNAi=0.5*cagedata_pis_agg$N2_RNAi1_star2+0.5*cagedata_pis_agg$N2_RNAi2_star2,
+  TFIIS_EV=cagedata_pis_agg$TFIIS_EV2_star2,
+  TFIIS_RNAi=0.5*cagedata_pis_agg$TFIIS_RNAi1_star2+0.5*cagedata_pis_agg$TFIIS_RNAi2_star2,
+  total=cagedata_pis_agg$TEV_star2
+)
+
+pos_to_type_mappings<-unique(cagedata_pis[,c("name","seqnames.start.end")])
+
+cagedata_pis_averaged_types<-merge(cagedata_pis_averaged,pos_to_type_mappings,by.x="pos",by.y="seqnames.start.end",all=TRUE)
+table(cagedata_pis_averaged_types$name)
+
+cagedata_pis_averaged_typeI<-cagedata_pis_averaged_types[which(cagedata_pis_averaged_types$name=="21UR" | cagedata_pis_averaged_types$name=="piRNA_type1"),]
+
+cagedata_pis_averaged_typeII<-cagedata_pis_averaged_types[which(cagedata_pis_averaged_types$name=="piRNA_type2"),]
+
+
+boxplot(pairwise_fc(cagedata_pis_averaged_typeI,"N2_EV","N2_RNAi",0.01),
+        pairwise_fc(cagedata_pis_averaged_typeI,"N2_EV","TFIIS_EV",0.01),
+        pairwise_fc(cagedata_pis_averaged_typeI,"N2_EV","TFIIS_RNAi",0.01),
+        pairwise_fc(cagedata_pis_averaged_typeI,"N2_EV","total",0.01))
+abline(h=0,lty="dashed",col="red")
+
+fcdata<-data.frame(fc=
+                 c(pairwise_fc(cagedata_pis_averaged_typeI,"N2_EV","N2_RNAi",0.01),
+                   pairwise_fc(cagedata_pis_averaged_typeI,"N2_EV","TFIIS_EV",0.01),
+                   pairwise_fc(cagedata_pis_averaged_typeI,"N2_EV","TFIIS_RNAi",0.01),
+                   pairwise_fc(cagedata_pis_averaged_typeI,"N2_EV","total",0.01)),
+       condition=c(rep("EV_ints11_RNAi",length(pairwise_fc(cagedata_pis_averaged_typeI,"N2_EV","N2_RNAi",0.01))),
+                   rep("TFIIS_EV",length(pairwise_fc(cagedata_pis_averaged_typeI,"N2_EV","TFIIS_EV",0.01))),
+                   rep("TFIIS_ints11_RNAi",length(pairwise_fc(cagedata_pis_averaged_typeI,"N2_EV","TFIIS_RNAi",0.01))),
+                   rep("total",length(pairwise_fc(cagedata_pis_averaged_typeI,"N2_EV","total",0.01)))))
+
+ggplot(fcdata)+geom_boxplot(aes(x=condition,y=fc,fill=condition))+theme_classic()+
+  geom_hline(yintercept = 0,linetype="dashed",col="red")
+ggsave("boxplots_CAGE_abundance_typeIpis.pdf")
+
+
+
+nrow(cagedata_pis_averaged_typeI) #659 total detected piRNAs
+nrow(cagedata_pis_averaged_typeI[which(cagedata_pis_averaged_typeI$N2_EV>0),])
+nrow(cagedata_pis_averaged_typeI[which(cagedata_pis_averaged_typeI$N2_RNAi>0),])
+nrow(cagedata_pis_averaged_typeI[which(cagedata_pis_averaged_typeI$TFIIS_EV>0),])
+nrow(cagedata_pis_averaged_typeI[which(cagedata_pis_averaged_typeI$TFIIS_RNAi>0),])
+
+
+
+#type II
+
+fcdata_typeII<-data.frame(fc=
+                 c(pairwise_fc(cagedata_pis_averaged_typeII,"N2_EV","N2_RNAi",0.01),
+                   pairwise_fc(cagedata_pis_averaged_typeII,"N2_EV","TFIIS_EV",0.01),
+                   pairwise_fc(cagedata_pis_averaged_typeII,"N2_EV","TFIIS_RNAi",0.01),
+                   pairwise_fc(cagedata_pis_averaged_typeII,"N2_EV","total",0.01)),
+       condition=c(rep("EV_ints11_RNAi",length(pairwise_fc(cagedata_pis_averaged_typeII,"N2_EV","N2_RNAi",0.01))),
+                   rep("TFIIS_EV",length(pairwise_fc(cagedata_pis_averaged_typeII,"N2_EV","TFIIS_EV",0.01))),
+                   rep("TFIIS_ints11_RNAi",length(pairwise_fc(cagedata_pis_averaged_typeII,"N2_EV","TFIIS_RNAi",0.01))),
+                   rep("total",length(pairwise_fc(cagedata_pis_averaged_typeII,"N2_EV","total",0.01)))))
+
+ggplot(fcdata_typeII)+geom_boxplot(aes(x=condition,y=fc,fill=condition))+theme_classic()+
+  geom_hline(yintercept = 0,linetype="dashed",col="red")
+ggsave("boxplots_CAGE_abundance_typeIIpis.pdf")
+
+
+
+
+
+
+
+```
+
+
+```{r plot avg expression distributions}
+
+
+cagedata_pis_averaged_typeII$mean<-apply(cagedata_pis_averaged_typeII[,2:5],MARGIN=1,FUN=function(row){mean(row)})
+cagedata_pis_averaged_typeI$mean<-apply(cagedata_pis_averaged_typeI[,2:5],MARGIN=1,FUN=function(row){mean(row)})
+
+all<-rbind(cagedata_pis_averaged_typeI,cagedata_pis_averaged_typeII)
+all[which(all$name=="21UR"),"name"]<-"piRNA_type1"
+
+ggplot(all,aes(y=mean,x=name))+geom_boxplot()+
+  coord_cartesian(ylim=c(0,4))+ylab("tpm")+theme_classic()
+ggsave("typeI_vs_typeII_piRNAs_abundance.pdf")
+
+```
+
+

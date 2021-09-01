@@ -1,0 +1,57 @@
+---
+title: "plotting cpm by upstream nt at typeI pis"
+author: "Toni Beltran"
+date: "17/01/2020"
+output: html_document
+---
+
+
+
+```{r load data}
+
+library(gplots)
+
+setwd("/Users/ab6415/Documents/Work_laptop_stuff/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig5_CAGE_analyses/CAGEr_processed_tables/pi_landscape_heatmap")
+pi_cpms_distance<-read.table("all_tss_cpms.typeIpis.txt",sep=",",row.names = 1)
+
+pi_cpms_distance$V12<-NULL
+pi_cpms_distance$V23<-NULL
+pi_cpms_distance$V34<-NULL
+pi_cpms_distance$V45<-NULL
+
+pi_cpms_distance$total_signal_minustwo<-pi_cpms_distance$V10+pi_cpms_distance$V21+pi_cpms_distance$V32+pi_cpms_distance$V43+pi_cpms_distance$V54
+pi_cpms_distance<-pi_cpms_distance[order(pi_cpms_distance$total_signal_minustwo,decreasing = TRUE),]
+
+mat<-as.matrix(pi_cpms_distance[,1:50])
+
+hist(mat[which(mat>0)],breaks=1000,xlim=c(0,5))
+hist(mat[which(mat>0)],breaks=10000,xlim=c(0,5))
+
+mat[which(mat==0)]<-NA
+logmat<-log2(mat)
+
+hist(logmat,breaks=70)
+hist(logmat,breaks=10000,xlim=c(0,5))
+
+
+library(RColorBrewer)
+pdf("pi_signal.pdf")
+heatmap.2(logmat,trace="none",dendrogram="none",Rowv = FALSE,Colv = FALSE,
+          col=colorRampPalette(c("#921D29","#921D29","#d73027","#d73027","#fc8d59","#fee090","#ffffbf","#e0f3f8","#91bfdb","#4575b4","#4575b4","darkblue","darkblue","black","black")),
+          symm = T,na.color = "#921D29")
+dev.off()
+
+pdf("pi_signal_total_barplot.pdf")
+barplot(colSums(pi_cpms_distance)[0:50],ylab="total piRNA cpm",space=0,border=NA)
+dev.off()
+
+pi_1_or_0_distance<-as.matrix(pi_cpms_distance)
+pi_1_or_0_distance[which(pi_1_or_0_distance>0)]<-1
+
+pdf("pi_signal_fractionpis_barplot.pdf")
+barplot(colSums(pi_1_or_0_distance)[0:50]/18072*100,ylab="percentage of detected piRNAs",space=0,border=NA,ylim=c(0,3.2),col="darkgrey")
+dev.off()
+
+
+```
+

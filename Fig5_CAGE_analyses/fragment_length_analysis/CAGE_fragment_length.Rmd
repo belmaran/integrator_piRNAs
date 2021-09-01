@@ -1,0 +1,306 @@
+---
+title: "Slic-CAGE from chbound RNA tophat mapping"
+author: "Toni Beltran"
+date: "22/10/2019"
+output: html_document
+---
+
+# Fragment length quantification
+
+Here I plot fragment length distributions of CAGE reads initiating 2nt upstream of 21U-RNAs.
+
+```{r load data}
+
+library(ggplot2)
+library(dplyr)
+library(reshape2)
+
+setwd("/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig5_CAGE_analyses/fragment_length_analysis/")
+
+alignment_files <- list.files(path="./alignment_pis/", pattern="*bam.Nsorted.bam.bed12.pis.precreads")
+alignment_files <- paste0("./alignment_pis/",alignment_files)
+
+alignment_files <- alignment_files[c(1,2,3,4,6,7,8,5)]
+
+names <-c("N2_EV_1","N2_EV_2","N2_ints11_1","N2_ints11_2","TFIIS_EV_2","TFIIS_ints11_1","TFIIS_ints11_2","totalRNA")
+
+piRNA_overlapping_reads <- lapply(alignment_files,function(i){
+  read.csv(paste(i,sep=""), header=FALSE,sep="\t")
+})
+
+piRNAprecs_2nt_upstream <- lapply(piRNA_overlapping_reads, function(df){
+ df$plus_d <- -(df$V14-df$V2)
+ df$minus_d <- -(df$V3-df$V15)
+ df_plus<-df[which(df$plus_d==(-2) & df$V6=="+"),]
+ df_minus<-df[which(df$minus_d==(-2) & df$V6=="-"),]
+ return(rbind(df_plus,df_minus))
+})
+
+chrs<-c("I","II","III","IV","V","X")
+
+piRNAprecs_2nt_upstream_typeI<-lapply(piRNAprecs_2nt_upstream,function(df){
+  df<-df[which(df$V1 %in% chrs),]
+  return(df[c(grep("^21UR-",df$V16),grep("^piRNA_type_1",df$V16)),])})
+
+piRNAprecs_2nt_upstream_typeII<-lapply(piRNAprecs_2nt_upstream,function(df){
+  df<-df[which(df$V1 %in% chrs),]
+  return(df[grep("^piRNA_type_2",df$V16),])})
+
+
+```
+
+
+Here I quantify the total abundance of -2 reads, and normalize it to total mapped reads, and total SL1 and SL2-containing reads.
+
+
+```{r quantify abundance and length of long chromatin-bound precursors}
+
+#do typeI and typeII separately
+
+#aggregate number of reads per locus
+
+#normalize to total SL1 and SL2-containing reads
+#normalize to total mapped reads
+#normalize to total mapped + SL1-SL2 containing reads
+
+#aggregate total reads
+number_of_piRNAreads_typeI <- unlist(lapply(piRNAprecs_2nt_upstream_typeI, function(df){return(nrow(df))}))
+number_of_piRNAreads_typeII <- unlist(lapply(piRNAprecs_2nt_upstream_typeII, function(df){return(nrow(df))}))
+
+number_of_detectedloci_typeI <- unlist(lapply(piRNAprecs_2nt_upstream_typeI, function(df){return(length(unique(df$V16)))}))
+number_of_detectedloci_typeII <- unlist(lapply(piRNAprecs_2nt_upstream_typeII, function(df){return(length(unique(df$V16)))}))
+
+
+SL1_reads<-read.table("SL1_SL2_abundance/SL1_counts_ext"); SL1_reads<-SL1_reads[c(1,3,5,7,11,13,15,9),"V2"]
+SL2_reads<-read.table("SL1_SL2_abundance/SL2_counts_ext"); SL2_reads<-SL2_reads[c(1,3,5,7,11,13,15,9),"V2"]
+total_mapped <- c(57363838,11289693,18508243,17497996,10811896,11666971,22677866,7133937)
+
+
+#SL1+SL2 norm
+pdf("typeI_pis_SLnorm.pdf")
+barplot(number_of_piRNAreads_typeI/(SL1_reads+SL2_reads)*100,names=names,
+        ylab="type I piRNA TSS-mapping reads/total SL1+SL2 reads *100",las=2)
+dev.off()
+
+pdf("typeII_pis_SLnorm.pdf")
+barplot(number_of_piRNAreads_typeII/(SL1_reads+SL2_reads)*100,names=names,
+        ylab="type II piRNA TSS-mapping reads/total SL1+SL2 reads *100",las=2)
+dev.off()
+
+#SL1 norm
+barplot(number_of_piRNAreads_typeI/(SL1_reads)*100,names=names,
+        ylab="type I piRNA TSS-mapping reads/total SL1+SL2 reads *100",las=2)
+barplot(number_of_piRNAreads_typeII/(SL1_reads)*100,names=names,
+        ylab="type II piRNA TSS-mapping reads/total SL1+SL2 reads *100",las=2)
+
+#SL2 norm
+barplot(number_of_piRNAreads_typeI/(SL2_reads)*100,names=names,
+        ylab="type I piRNA TSS-mapping reads/total SL1+SL2 reads *100",las=2)
+barplot(number_of_piRNAreads_typeII/(SL2_reads)*100,names=names,
+        ylab="type II piRNA TSS-mapping reads/total SL1+SL2 reads *100",las=2)
+
+#total mapped norm
+pdf("typeI_pis_totalnorm.pdf")
+barplot(number_of_piRNAreads_typeI/total_mapped*100,names=names,
+        ylab="type I piRNA TSS-mapping reads/total mapped reads *100",las=2)
+dev.off()
+
+pdf("typeII_pis_totalnorm.pdf")
+barplot(number_of_piRNAreads_typeII/total_mapped*100,names=names,
+        ylab="type II piRNA TSS-mapping reads/total mapped reads *100",las=2)
+dev.off()
+
+
+#quantify length
+
+boxplots<-function(dflist,max){
+  length.mlt <- melt(lapply(dflist,function(df){return(df$V3-df$V2)}))
+  length.mlt$L1 <- as.numeric(length.mlt$L1)
+  length.mlt$sample <- names[length.mlt$L1]
+  
+  length.mlt$L1 <- factor(length.mlt$L1)
+  
+  print(ggplot(length.mlt) + 
+    geom_boxplot(aes(y=value,x=sample), position = 'identity',outlier.shape = NA)+
+    theme_classic()+
+    ylab("precursor length")+
+    coord_cartesian(y=c(0,max)))
+}
+
+boxplots(piRNAprecs_2nt_upstream_typeI,1500)
+boxplots(piRNAprecs_2nt_upstream_typeII,22000)
+
+```
+
+
+
+# Normalized length-abundance plots  (motif-dependent)
+
+```{r plot normalized length distributions type I}
+
+test<-melt(lapply(piRNAprecs_2nt_upstream_typeI,function(df){return(df$V3-df$V2)}))
+
+test$condition<-rep(NA,nrow(test))
+test[which(test$L1==1 | test$L1==2),"condition"]<-"N2 EV"
+test[which(test$L1==3 | test$L1==4),"condition"]<-"N2 ints-11 RNAi"
+test[which(test$L1==5),"condition"]<-"TFIIS EV"
+test[which(test$L1==6 | test$L1==7),"condition"]<-"TFIIS ints-11 RNAi"
+test[which(test$L1==8),"condition"]<-"total RNA"
+
+  
+#show normalized counts to avoid not being consistent with the star-mapped data
+#have to calculate histograms independently, regenerate the table and do geom_col
+
+maximum_length<-max(test$value) #2537
+minimum_length<-min(test$value) #158
+
+minbins<-0
+maxbins<-2600
+nbins<-75
+
+get_normalized_histcounts<-function(sample_index){
+  histo<-hist(test[which(test$L1==sample_index),"value"],breaks=seq(minbins,maxbins,(maxbins-minbins)/nbins),plot = FALSE)
+  histo$cpm<-histo$counts/total_mapped[sample_index]*1e6
+  return(data.frame(cpm=histo$cpm,mids=histo$mids,sample=rep(names[sample_index],nbins)))
+}
+
+norm_cpm_data<-data.frame()
+for (i in seq(8)){
+  norm_cpm_data<-rbind(norm_cpm_data,get_normalized_histcounts(i))
+}
+
+ggplot(norm_cpm_data)+
+  geom_col(aes(x=mids,y=cpm,fill=factor(sample)),width=(maxbins-minbins)/nbins)+
+  facet_grid(factor(sample) ~ .)+theme_classic()
+
+
+get_normalized_histcounts_returncountsonly<-function(sample_index){
+  histo<-hist(test[which(test$L1==sample_index),"value"],breaks=seq(minbins,maxbins,(maxbins-minbins)/nbins),plot = FALSE)
+  histo$cpm<-histo$counts/total_mapped[sample_index]*1e6
+  return(histo$cpm)
+}
+
+
+averaged_norm_cpm_data<-data.frame(cpm=c((get_normalized_histcounts_returncountsonly(1)+get_normalized_histcounts_returncountsonly(2))/2,
+                  (get_normalized_histcounts_returncountsonly(3)+get_normalized_histcounts_returncountsonly(4))/2,
+                  get_normalized_histcounts_returncountsonly(5),
+                  (get_normalized_histcounts_returncountsonly(6)+get_normalized_histcounts_returncountsonly(7))/2,
+                  get_normalized_histcounts_returncountsonly(8)),
+             condition=c(rep("N2 EV",nbins),rep("N2 ints-11 RNAi",nbins),rep("TFIIS EV",nbins),rep("TFIIS ints-11 RNAi",nbins),rep("total",nbins)),
+             mids=rep(norm_cpm_data$mids[1:nbins],5))
+
+ggplot(averaged_norm_cpm_data)+
+  geom_col(aes(x=mids,y=cpm,fill=factor(condition)),width=(maxbins-minbins)/nbins)+xlab("fragment length (nt)")+
+  facet_grid(factor(condition) ~ .)+theme_classic()
+  ggsave(paste(paste("typeI_pis_normalized_length_distributions_",toString(nbins),sep=""),"_bins.pdf",sep=""))
+
+mids<-averaged_norm_cpm_data$mids[1:nbins]
+
+median_N2_EV<-0.5*mids[which(cumsum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="N2 EV"),"cpm"])/sum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="N2 EV"),"cpm"])>0.5)[1]]+
+              0.5*mids[which(cumsum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="N2 EV"),"cpm"])/sum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="N2 EV"),"cpm"])>0.5)[1]-1]
+            
+median_N2_ints11RNAi<-0.5*mids[which(cumsum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="N2 ints-11 RNAi"),"cpm"])/sum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="N2 ints-11 RNAi"),"cpm"])>0.5)[1]]+
+              0.5*mids[which(cumsum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="N2 ints-11 RNAi"),"cpm"])/sum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="N2 ints-11 RNAi"),"cpm"])>0.5)[1]-1]
+
+median_TFIIS_EV<-0.5*mids[which(cumsum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="TFIIS EV"),"cpm"])/sum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="TFIIS EV"),"cpm"])>0.5)[1]]+
+              0.5*mids[which(cumsum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="TFIIS EV"),"cpm"])/sum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="TFIIS EV"),"cpm"])>0.5)[1]-1]
+
+median_TFIIS_ints11RNAi<-0.5*mids[which(cumsum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="TFIIS ints-11 RNAi"),"cpm"])/sum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="TFIIS ints-11 RNAi"),"cpm"])>0.5)[1]]+
+              0.5*mids[which(cumsum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="TFIIS ints-11 RNAi"),"cpm"])/sum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="TFIIS ints-11 RNAi"),"cpm"])>0.5)[1]-1]
+
+
+
+
+```
+
+# Normalized length-abundance plots  (motif-independent)
+
+```{r plot normalized length distributions type II}
+
+test<-melt(lapply(piRNAprecs_2nt_upstream_typeII,function(df){return(df$V3-df$V2)}))
+test<-test[-which(test$value>20000),]
+
+
+max(test$value)
+
+test$condition<-rep(NA,nrow(test))
+test[which(test$L1==1 | test$L1==2),"condition"]<-"N2 EV"
+test[which(test$L1==3 | test$L1==4),"condition"]<-"N2 ints-11 RNAi"
+test[which(test$L1==5),"condition"]<-"TFIIS EV"
+test[which(test$L1==6 | test$L1==7),"condition"]<-"TFIIS ints-11 RNAi"
+test[which(test$L1==8),"condition"]<-"total RNA"
+
+
+
+#show normalized counts to avoid not being consistent with the star-mapped data
+#have to calculate histograms independently, regenerate the table and do geom_col
+
+maximum_length<-max(test$value) #839650
+minimum_length<-min(test$value) #96
+
+minbins<-0
+maxbins<-20000
+nbins<-1000
+
+get_normalized_histcounts<-function(sample_index){
+  histo<-hist(test[which(test$L1==sample_index),"value"],breaks=seq(minbins,maxbins,(maxbins-minbins)/nbins),plot = FALSE)
+  histo$cpm<-histo$counts/total_mapped[sample_index]*1e6
+  return(data.frame(cpm=histo$cpm,mids=histo$mids,sample=rep(names[sample_index],nbins)))
+}
+
+norm_cpm_data<-data.frame()
+for (i in seq(8)){
+  norm_cpm_data<-rbind(norm_cpm_data,get_normalized_histcounts(i))
+}
+
+ggplot(norm_cpm_data)+
+  geom_col(aes(x=mids,y=cpm,fill=factor(sample)),width=(maxbins-minbins)/nbins)+
+  facet_grid(factor(sample) ~ .)+theme_classic()
+
+
+get_normalized_histcounts_returncountsonly<-function(sample_index){
+  histo<-hist(test[which(test$L1==sample_index),"value"],breaks=seq(minbins,maxbins,(maxbins-minbins)/nbins),plot = FALSE)
+  histo$cpm<-histo$counts/total_mapped[sample_index]*1e6
+  return(histo$cpm)
+}
+
+
+averaged_norm_cpm_data<-data.frame(cpm=c((get_normalized_histcounts_returncountsonly(1)+get_normalized_histcounts_returncountsonly(2))/2,
+                  (get_normalized_histcounts_returncountsonly(3)+get_normalized_histcounts_returncountsonly(4))/2,
+                  get_normalized_histcounts_returncountsonly(5),
+                  (get_normalized_histcounts_returncountsonly(6)+get_normalized_histcounts_returncountsonly(7))/2,
+                  get_normalized_histcounts_returncountsonly(8)),
+             condition=c(rep("N2 EV",nbins),rep("N2 ints-11 RNAi",nbins),rep("TFIIS EV",nbins),rep("TFIIS ints-11 RNAi",nbins),rep("total",nbins)),
+             mids=rep(norm_cpm_data$mids[1:nbins],5))
+
+ggplot(averaged_norm_cpm_data)+
+  geom_col(aes(x=mids,y=cpm,fill=factor(condition)),width=(maxbins-minbins)/nbins)+xlab("fragment length(nt)")+
+  facet_grid(factor(condition) ~ .)+theme_classic()
+  ggsave(paste(paste("typeII_pis_normalized_length_distributions_",toString(nbins),sep=""),"_bins.pdf",sep=""))
+ 
+ggplot(averaged_norm_cpm_data)+
+  geom_col(aes(x=mids,y=cpm,fill=factor(condition)),width=(maxbins-minbins)/nbins)+coord_cartesian(x=c(0,1500),y=c(0,400))+xlab("fragment length(nt)")+
+  facet_grid(factor(condition) ~ .)+theme_classic()
+  ggsave(paste(paste("typeII_pis_normalized_length_distributions_",toString(nbins),sep=""),"_bins_lowrange.pdf",sep=""))
+
+
+mids<-averaged_norm_cpm_data$mids[1:nbins]
+
+median_N2_EV<-0.5*mids[which(cumsum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="N2 EV"),"cpm"])/sum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="N2 EV"),"cpm"])>0.5)[1]]+
+              0.5*mids[which(cumsum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="N2 EV"),"cpm"])/sum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="N2 EV"),"cpm"])>0.5)[1]-1]
+            
+median_N2_ints11RNAi<-0.5*mids[which(cumsum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="N2 ints-11 RNAi"),"cpm"])/sum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="N2 ints-11 RNAi"),"cpm"])>0.5)[1]]+
+              0.5*mids[which(cumsum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="N2 ints-11 RNAi"),"cpm"])/sum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="N2 ints-11 RNAi"),"cpm"])>0.5)[1]-1]
+
+median_TFIIS_EV<-0.5*mids[which(cumsum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="TFIIS EV"),"cpm"])/sum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="TFIIS EV"),"cpm"])>0.5)[1]]+
+              0.5*mids[which(cumsum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="TFIIS EV"),"cpm"])/sum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="TFIIS EV"),"cpm"])>0.5)[1]-1]
+
+median_TFIIS_ints11RNAi<-0.5*mids[which(cumsum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="TFIIS ints-11 RNAi"),"cpm"])/sum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="TFIIS ints-11 RNAi"),"cpm"])>0.5)[1]]+
+              0.5*mids[which(cumsum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="TFIIS ints-11 RNAi"),"cpm"])/sum(averaged_norm_cpm_data[which(averaged_norm_cpm_data$condition=="TFIIS ints-11 RNAi"),"cpm"])>0.5)[1]-1]
+
+
+
+
+
+```
+
