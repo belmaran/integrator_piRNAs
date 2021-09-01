@@ -1,0 +1,226 @@
+---
+title: "fragment_abundance_and_tmsignal.Rmd"
+author: "Toni Beltran"
+date: "03/02/2020"
+output: html_document
+---
+
+## Changes in fragment abundance upon Integrator depletion
+
+Here I calculate the changes in abundance of degradation fragments whose 5´P ends map within +25 to +50nt of 21U-RNAs. I aggregate fragment abundance in a per-locus manner, normalize to cpm of mapped reads, and calculate log2 fold change distributions.
+
+```{r load data}
+
+library(ggplot2)
+library(reshape2)
+library(scales)
+
+setwd("/Users/ab6415/Documents/Work_laptop_stuff/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig4_FigS5_degradationfragments/fragment_length_and_abundance_analysis/")
+
+path_files<-"/Users/ab6415/Documents/Work_laptop_stuff/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig4_FigS5_degradationfragments/fragment_length_and_abundance_analysis/"
+files<- list.files(path=path_files, pattern="*distance") 
+files<-paste0(path_files,files)[c(1,2,3,5,4,6,7,8)]
+names <-c("N2_EV2","N2_ints11_RNAi2","TFIIS_EV2","N2_EV1","TFIIS_ints11_RNAi2","N2_ints11_RNAi1","TFIIS_EV1","TFIIS_ints11_RNAi1")[c(1,2,3,5,4,6,7,8)]
+          
+data <- lapply(files,function(i){
+  read.table(file=i,sep="\t")
+})
+
+
+data_25_to_50<-
+  lapply(data,function(df){return(df[which(df$V15>24 & df$V15<50),])})
+
+data_25_to_50_aggbylocus<-
+  lapply(data_25_to_50,function(df){
+    return(aggregate(df$V6,by=list(df$V12),FUN=sum))
+  })
+
+aggdata_merged<-data_25_to_50_aggbylocus[[1]]
+colnames(aggdata_merged)[2]<-names[1]
+for (i in seq(2,length(data_25_to_50_aggbylocus))){
+  df<-data_25_to_50_aggbylocus[[i]]
+  colnames(df)[2]<-names[i]
+  aggdata_merged<-merge(aggdata_merged,df,by="Group.1",all=TRUE)
+}
+aggdata_merged[is.na(aggdata_merged)]<-0
+rownames(aggdata_merged)<-aggdata_merged$Group.1; aggdata_merged$Group.1<-NULL 
+
+totalmapped_reads<-c(55706017,57923743,33131038,24807456,17291698,15651017,11254712,11704330)
+
+aggdata_merged_cpm<-data.frame(t(t(aggdata_merged)/totalmapped_reads*1e6))
+
+
+```
+
+
+
+```{r abundance distributions}
+
+boxplot(aggdata_merged_cpm[which(apply(aggdata_merged_cpm,1,mean)>0.01),],outline = FALSE)
+boxplot(aggdata_merged_cpm[which(apply(aggdata_merged_cpm,1,mean)>0.005),],outline = FALSE)
+boxplot(aggdata_merged_cpm[which(apply(aggdata_merged_cpm,1,mean)>0.05),],outline = FALSE)
+
+aggdata_merged_cpm.mlt<-melt(aggdata_merged_cpm[which(apply(aggdata_merged_cpm,1,mean)>0.05),])
+aggdata_merged_cpm.mlt$variable<-factor(aggdata_merged_cpm.mlt$variable,levels=c("N2_EV1","N2_ints11_RNAi1","TFIIS_EV1","TFIIS_ints11_RNAi1",
+                                                               "N2_EV2","N2_ints11_RNAi2","TFIIS_EV2","TFIIS_ints11_RNAi2"))
+ggplot(data.frame(aggdata_merged_cpm.mlt))+
+  geom_boxplot(aes(x=variable,y=value),outlier.shape = NA)+
+  coord_cartesian(ylim=c(0,0.8))+
+  theme_classic()
+ggsave("fragmentAbundanceDistributions_loci>0.05avcpm_632loci_boxplots.pdf")
+
+
+```
+
+
+```{r paired fold changes in abundance}
+
+
+calculate_pairwise_fc_pseudocpm<-function(df,control,treatment,pseudocpm){
+  
+  mean<-0.5*df[,control]+0.5*df[,treatment]
+  df_nozero<-df[which(mean>0),]
+  log2fc<-log2(df_nozero[,treatment]+pseudocpm)-log2(df_nozero[,control]+pseudocpm)
+
+  return(data.frame(log2fc,sample=paste(treatment,control,sep = "_vs_")))
+}
+
+calculate_pairwise_fc_cpmthr<-function(df,control,treatment,cpmthr){
+  
+  df_threshold<-df[which(df[,control]>cpmthr & df[,treatment]>cpmthr),]
+  log2fc_cpmthr<-log2(df_threshold[,treatment])-log2(df_threshold[,control])
+  
+  return(data.frame(log2fc_cpmthr,sample=paste(treatment,control,sep = "_vs_")))
+}
+
+fc_data_pseudocpm<-rbind(
+  calculate_pairwise_fc_pseudocpm(aggdata_merged_cpm,"N2_EV1","N2_ints11_RNAi1",0.01),
+  calculate_pairwise_fc_pseudocpm(aggdata_merged_cpm,"N2_EV1","TFIIS_EV1",0.01),
+  calculate_pairwise_fc_pseudocpm(aggdata_merged_cpm,"N2_EV1","TFIIS_ints11_RNAi1",0.01),
+  calculate_pairwise_fc_pseudocpm(aggdata_merged_cpm,"N2_EV2","N2_ints11_RNAi2",0.01),
+  calculate_pairwise_fc_pseudocpm(aggdata_merged_cpm,"N2_EV2","TFIIS_EV2",0.01),
+  calculate_pairwise_fc_pseudocpm(aggdata_merged_cpm,"N2_EV2","TFIIS_ints11_RNAi2",0.01)
+)
+ggplot(fc_data_pseudocpm)+geom_boxplot(aes(y=log2fc,x=sample))+ggtitle("loci >0 in any condition, 0.01 pseudocpm added")+
+  geom_abline(slope=0,intercept = 0,col="red",linetype="dashed")+theme_classic()
+ggsave("fragmentAbundance_changes_tworeps_0.01.pdf")
+
+
+fc_data_cpmthr<-rbind(
+  calculate_pairwise_fc_cpmthr(aggdata_merged_cpm,"N2_EV1","N2_ints11_RNAi1",0.01),
+  calculate_pairwise_fc_cpmthr(aggdata_merged_cpm,"N2_EV1","TFIIS_EV1",0.01),
+  calculate_pairwise_fc_cpmthr(aggdata_merged_cpm,"N2_EV1","TFIIS_ints11_RNAi1",0.01),
+  calculate_pairwise_fc_cpmthr(aggdata_merged_cpm,"N2_EV2","N2_ints11_RNAi2",0.01),
+  calculate_pairwise_fc_cpmthr(aggdata_merged_cpm,"N2_EV2","TFIIS_EV2",0.01),
+  calculate_pairwise_fc_cpmthr(aggdata_merged_cpm,"N2_EV2","TFIIS_ints11_RNAi2",0.01)
+)
+ggplot(fc_data_cpmthr)+geom_boxplot(aes(y=log2fc_cpmthr,x=sample))+ggtitle("loci with >0.01cpm in both conditions")+theme_classic()
+
+
+aggdata_merged_cpm_averaged<-data.frame(
+  N2_EV=(aggdata_merged_cpm$N2_EV1+aggdata_merged_cpm$N2_EV2)/2,
+  N2_ints11_RNAi=(aggdata_merged_cpm$N2_ints11_RNAi1+aggdata_merged_cpm$N2_ints11_RNAi2)/2,
+  TFIIS_EV=(aggdata_merged_cpm$TFIIS_EV1+aggdata_merged_cpm$TFIIS_EV2)/2,
+  TFIIS_ints11_RNAi=(aggdata_merged_cpm$TFIIS_ints11_RNAi1+aggdata_merged_cpm$TFIIS_ints11_RNAi2)/2
+)
+
+fc_data_pseudocpm<-rbind(
+  calculate_pairwise_fc_pseudocpm(aggdata_merged_cpm_averaged,"N2_EV","N2_ints11_RNAi",0.001),
+  calculate_pairwise_fc_pseudocpm(aggdata_merged_cpm_averaged,"N2_EV","TFIIS_EV",0.001),
+  calculate_pairwise_fc_pseudocpm(aggdata_merged_cpm_averaged,"N2_EV","TFIIS_ints11_RNAi",0.001)
+)
+
+ggplot(fc_data_pseudocpm)+geom_boxplot(aes(y=log2fc,x=sample))+ggtitle("averaged, loci >0 in any condition, 0.01 pseudocpm added")+
+  geom_abline(slope=0,intercept = 0,col="red",linetype="dashed")+theme_classic()
+ggsave("fragmentAbundance_changes_averaged_0.001pseudocpm.pdf")
+
+
+
+fc_data_cpmthr<-rbind(
+  calculate_pairwise_fc_cpmthr(aggdata_merged_cpm_averaged,"N2_EV","N2_ints11_RNAi",0.01),
+  calculate_pairwise_fc_cpmthr(aggdata_merged_cpm_averaged,"N2_EV","TFIIS_EV",0.01),
+  calculate_pairwise_fc_cpmthr(aggdata_merged_cpm_averaged,"N2_EV","TFIIS_ints11_RNAi",0.01)
+)
+ggplot(fc_data_cpmthr)+geom_boxplot(aes(y=log2fc_cpmthr,x=sample))+ggtitle("averaged, loci with >0.01cpm in both conditions")+
+  geom_abline(slope=0,intercept=0,col="red",linetype="dashed")+
+  theme_classic()
+ggsave("fragmentAbundance_changes_averaged_cpmthr0.01.pdf")
+
+```
+
+## Termination signal strength and fragment abundance
+
+Here I load the data on the strength of termination signals, and analyze the abundance of degradation fragments in relation to the strength of these signals. The presence of fragments is negatively correlated with the stregth of termination signals, suggesting that termination signals do not promote cleavage. This data is thus more consistent with a model where termination signals promote progression of Pol II from the 28nt to the 48nt position on chromatin.
+
+```{r termination signal strength and fragment abundance}
+
+#load termination signal strength data
+term_signal<-read.table("../../Reference_pausing_signal_strength/all_pis_typeI_pausingscores.bed",header=TRUE)
+rownames(term_signal)<-term_signal$V4; term_signal<-term_signal[,7:12]
+aggdata_merged_tmdata<-merge(aggdata_merged,term_signal,by=0,all = TRUE)
+aggdata_merged_tmdata<-aggdata_merged_tmdata[c(grep("^21UR-",aggdata_merged_tmdata$Row.names),grep("^piRNA_type_1",aggdata_merged_tmdata$Row.names)),]
+rownames(aggdata_merged_tmdata)<-aggdata_merged_tmdata$Row.names; aggdata_merged_tmdata$Row.names<-NULL
+aggdata_merged_tmdata[is.na(aggdata_merged_tmdata)]<-0
+
+
+
+aggdata_merged_tmdata$tm_downstream_bins<-factor(aggdata_merged_tmdata$tm_downstream_bins,levels=c("(-713,-94.8]","(-94.8,-18.3]","(-18.3,39.8]","(39.8,101]","(101,412]"))
+aggdata_merged_tmdata$tm_total_bins<-factor(aggdata_merged_tmdata$tm_total_bins,levels=c("(-620,-108]","(-108,-26.4]","(-26.4,40.1]","(40.1,112]","(112,486]"))
+
+
+
+table(aggdata_merged_tmdata$tm_downstream_bins)
+aggdata_merged_tmdata$pis<-rownames(aggdata_merged_tmdata)
+
+colnames(aggdata_merged_tmdata)[9:15]
+
+aggdata_merged_tmdata_melted<-melt(aggdata_merged_tmdata,id=colnames(aggdata_merged_tmdata)[9:15])
+
+ggplot(aggdata_merged_tmdata_melted[which(aggdata_merged_tmdata_melted$value>0),])+geom_boxplot(aes(y=value,x=tm_downstream_bins,fill=variable),outlier.shape=NA)+
+  coord_cartesian(ylim = c(0,10))+
+  facet_wrap(variable~.,ncol=4)+ggtitle("fragment abundance distribution for loci>0 counts")+theme_classic()
+ggsave("fragment_abundance_allsamples_fragmentAbundanceForDetectedLoci.pdf")
+
+ggplot(aggdata_merged_tmdata_melted)+geom_col(aes(y=log2(value+1),x=tm_downstream_bins,fill=variable))+
+  facet_wrap(variable~.,ncol=4)+ggtitle("sum of log2(number of reads+1)")+theme_classic()
+ggsave("fragment_abundance_allsamples_sumLog2Numreads.pdf")
+
+
+aggdata_merged_tmdata_melted$expressed<-rep(0,nrow(aggdata_merged_tmdata_melted))
+aggdata_merged_tmdata_melted[which(aggdata_merged_tmdata_melted$value>0),"expressed"]<-1
+
+ggplot(aggdata_merged_tmdata_melted)+geom_col(aes(y=expressed,x=tm_downstream_bins,fill=variable))+
+  facet_wrap(variable~.,ncol=4,scales="free")+ggtitle("total loci with detectable fragments")+theme_classic()
+ggsave("fragment_abundance_allsamples_totalLociDetected.pdf")
+
+
+#subset N2_EV2 alone to have as an example plot
+
+aggdata_merged_tmdata_melted_N2_example<-aggdata_merged_tmdata_melted[which(aggdata_merged_tmdata_melted$variable == "N2_EV2"),]
+
+ggplot(aggdata_merged_tmdata_melted_N2_example)+geom_col(aes(y=expressed,x=tm_downstream_bins),col=alpha("orange",0.5),fill=alpha("orange",0.5))+
+  ggtitle("total loci with detected fragments")+theme_classic()
+ggsave("fragment_abundance_N2EVexample_totalLociDetected.pdf")
+
+ggplot(aggdata_merged_tmdata_melted_N2_example)+geom_col(aes(y=log2(value+1),x=tm_downstream_bins),col=alpha("orange",0.5),fill=alpha("orange",0.5))+
+  ggtitle("sum of log2(number of reads+1)")+theme_classic()
+ggsave("fragment_abundance_N2EVexample_sumLog2Numreads.pdf")
+
+
+ggplot(aggdata_merged_tmdata_melted_N2_example[which(aggdata_merged_tmdata_melted_N2_example$value>0),])+geom_boxplot(aes(y=value,x=tm_downstream_bins),fill=alpha("orange",0.5))+
+  coord_cartesian(ylim=c(0,20))+
+  ggtitle("loci with detectable fragments")+theme_classic()+ylab("counts")
+ggsave("fragment_abundance_N2EVexample_fragmentAbundanceForDetectedLoci.pdf")
+
+
+ggplot(aggdata_merged_tmdata_melted_N2_example[which(aggdata_merged_tmdata_melted_N2_example$value>0),])+geom_boxplot(aes(y=log2(value),x=tm_downstream_bins),fill=alpha("orange",0.5))+
+  coord_cartesian(ylim=c(0,13))+
+  ggtitle("loci with detectable fragments")+theme_classic()+ylab("log2(counts)")
+ggsave("fragment_abundance_N2EVexample_log2FragmentAbundanceForDetectedLoci.pdf")
+
+
+
+
+
+
+```

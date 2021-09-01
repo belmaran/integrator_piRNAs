@@ -1,0 +1,96 @@
+---
+title: "fragments - plotting 5' and 3' positions"
+output: html_document
+---
+
+## Degradation fragment length distributions
+
+Here I plot the positions of degradation fragment 5' and 3' ends downstream of piRNAs. If these correspond to cleavage of 48nt precursors, the 5' ends of fragments should be centered at +28 while the 3' ends should be centered at +48.
+
+Actually the 5' ends are centered overall at +34 and the 3' ends at +54 - almost a match but 6-7nt shift, not sure how to explain? Maybe most 28nt nucleoplasmic precursors not integrator dependent, and Integrator cleavage generates similar length of precursors but slightly longer?
+
+```{r plot fragment length distributions}
+
+setwd("/Users/ab6415/Documents/Work_laptop_stuff/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig4_FigS5_degradationfragments/fragment_length_and_abundance_analysis/")
+library(ggplot2)
+library(dplyr)
+library(reshape2)
+
+path_files<-"/Users/ab6415/Documents/Work_laptop_stuff/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Fig4_FigS5_degradationfragments/fragment_length_and_abundance_analysis/"
+files<- list.files(path=path_files, pattern="*distance") 
+files<-paste0(path_files,files)
+names <-c("N2_EV2","N2_ints11_RNAi2","TFIIS_EV2","N2_EV1","TFIIS_ints11_RNAi2","N2_ints11_RNAi1","TFIIS_EV1","TFIIS_ints11_RNAi1")
+          
+data <- lapply(files,function(i){
+  read.table(file=i,sep="\t")
+})
+
+
+data_distances<-lapply(data,function(df){
+  df$distance<-df$V2-df$V10
+  df$distance[which(df$V8=="-")]<-df$distance[which(df$V8=="-")]*(-1)
+  return(df[which(df$V15<100),])})
+
+
+plot_hist<-function(df,name,all_reads){
+  
+        totalseqs<-nrow(all_reads)
+        
+        print(ggplot(df,aes(x=distance+2))+
+            geom_histogram(aes(y=..count../totalseqs*1e6),breaks=seq(-10,100))+
+            ggtitle(names[i])+
+            ylab("sequences per million")+
+            xlab("5' end positions relative to piRNA TSS")+
+            coord_cartesian(ylim=c(0,200))+
+            theme_classic())
+        ggsave(paste(name,"_fiveprime_positions.pdf",sep=""))
+        
+        print(ggplot(df,aes(x=distance+V4+2))+
+            geom_histogram(aes(y=..count../totalseqs*1e6),breaks=seq(-10,100))+
+            ggtitle(names[i])+
+            ylab("sequences per million")+
+            xlab("3' end positions relative to piRNA TSS")+
+            theme_classic())
+        ggsave(paste(name,"_threeprime_positions.pdf",sep=""))
+}
+                                
+for (i in seq(length(names))){
+  plot_hist(data_distances[[i]],names[i],data[[i]])
+}
+
+df<-data_distances[[i]]
+name<-"test"
+all_reads<-data[[i]]
+
+
+plot_hist_numreads<-function(df,name,all_reads){
+        df <- as.data.frame(lapply(df, rep, df$V5))
+        
+        totalreads<-sum(all_reads$V6)
+        
+        print(ggplot(df,aes(x=distance+2))+
+            geom_histogram(aes(y=..count../totalreads*1e6),breaks=seq(-10,100))+
+            ggtitle(names[i])+
+            ylab("cpm")+
+            xlab("5' end positions relative to piRNA TSS")+
+            coord_cartesian(ylim=c(0,60))+
+            theme_classic())
+        ggsave(paste(name,"_fiveprime_positions_cpm.pdf",sep=""))
+        
+        print(ggplot(df,aes(distance+V4+2))+
+            geom_histogram(aes(y=..count../totalreads*1e6),breaks=seq(-10,100))+
+            ggtitle(names[i])+
+            ylab("cpm")+
+            xlab("3' end positions relative to piRNA TSS")+
+            coord_cartesian(ylim=c(0,60))+
+            theme_classic())
+        ggsave(paste(name,"_threeprime_positions_cpm.pdf",sep=""))
+}
+
+
+for (i in seq(length(names))){
+  plot_hist_numreads(data_distances[[i]],names[i],data[[i]])
+}
+
+
+```
