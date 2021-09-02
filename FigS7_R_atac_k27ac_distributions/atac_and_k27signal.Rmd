@@ -1,0 +1,155 @@
+---
+title: "atac_k27_data"
+author: "Toni Beltran"
+date: "05/02/2020"
+output: html_document
+---
+
+
+```{r load data}
+
+library(ggplot2)
+library(ggpubr)
+
+setwd("/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/SuppFig7_R_atac_k27ac_distributions//")
+
+```
+
+# ATAC signal distributions
+
+Here, I have loaded the matrix of atac signal produced using deeptools computeMatrix reference-point in order to plot the distributions of accessibility (much more informative than just focusing on the metagene profiles). I average the signal corresponding to +-100nt around piRNA TSSs (200bp total) and plot the distributions of accessibility for CAGE-detected type I piRNAs, non-CAGE-detected type I piRNAs, and type II piRNAs.
+
+```{r atac-seq data}
+
+atac_data<-read.table("../SuppFig7_ATAC_ahringer/ATAC_signal_forR/atac_piRNAs_wt_vs_glp1.txt",header=TRUE)
+row_names<-read.table("../SuppFig7_ATAC_ahringer/ATAC_signal_forR/atac_piRNAs_wt_vs_glp1.rows.txt")
+
+rownames(atac_data)<-row_names$V4
+#head(atac_data)
+
+#colnames(atac_data)
+
+atac_data$mean_ya<-apply(atac_data,MARGIN=1,FUN=function(row){return(mean(row[40:60]))})
+atac_data$mean_glp<-apply(atac_data,MARGIN=1,FUN=function(row){return(mean(row[140:160]))})
+atac_data$mean_log2ratio<-apply(atac_data,MARGIN=1,FUN=function(row){return(mean(row[240:260]))})
+atac_data$mean_difference<-apply(atac_data,MARGIN=1,FUN=function(row){return(mean(row[340:360]))})
+atac_data$group<-row_names$V13
+
+ggplot(atac_data)+geom_boxplot(aes(y=mean_ya,x=group),outlier.shape=NA)+
+  coord_cartesian(ylim=c(0,20))+theme_classic()
+ggsave("allpis_accessibility.pdf")
+ggplot(atac_data[which(atac_data$group=="all_pis_typeI.bed" | atac_data$group=="pis_detected_CAGE.bed"),],aes(y=mean_ya,x=factor(group)))+
+  geom_boxplot(outlier.shape=NA)+
+  coord_cartesian(ylim=c(0,2.5))+theme_classic()
+ggsave("typeIpis_accessibility_CAGEvsNONCAGE_wtYA.pdf")
+wilcox.test(atac_data[which(atac_data$group=="all_pis_typeI.bed"),"mean_ya"],
+            atac_data[which(atac_data$group=="pis_detected_CAGE.bed"),"mean_ya"])
+
+ggplot(atac_data)+geom_boxplot(aes(y=mean_glp,x=group),outlier.shape=NA)+
+  coord_cartesian(ylim=c(0,20))
+
+ggplot(atac_data)+geom_boxplot(aes(y=mean_log2ratio,x=group),outlier.shape=NA)+
+  coord_cartesian(ylim=c(-2.5,2.5))+geom_hline(yintercept = 0,col="red",linetype="dashed")
+ggplot(atac_data[which(atac_data$group=="all_pis_typeI.bed" | atac_data$group=="pis_detected_CAGE.bed"),],aes(y=mean_log2ratio,x=factor(group)))+
+  geom_boxplot(outlier.shape=NA)+
+  coord_cartesian(ylim=c(-0.25,1.5))+theme_classic()
+wilcox.test(atac_data[which(atac_data$group=="all_pis_typeI.bed"),"mean_log2ratio"],atac_data[which(atac_data$group=="pis_detected_CAGE.bed"),"mean_log2ratio"])
+ggsave("typeIpis_log2ratio_wt-glp1_CAGEvsNONCAGE.pdf")
+
+
+
+ggplot(atac_data)+geom_boxplot(aes(y=mean_difference,x=group),outlier.shape=NA)+
+  coord_cartesian(ylim=c(-2.5,2.5))+geom_hline(yintercept = 0,col="red",linetype="dashed")
+ggplot(atac_data[which(atac_data$group=="all_pis_typeI.bed" | atac_data$group=="pis_detected_CAGE.bed"),],aes(y=mean_difference,x=factor(group)))+
+  geom_boxplot(outlier.shape=NA)+
+  coord_cartesian(ylim=c(-0.25,1.5))+theme_classic()
+wilcox.test(atac_data[which(atac_data$group=="all_pis_typeI.bed"),"mean_difference"],atac_data[which(atac_data$group=="pis_detected_CAGE.bed"),"mean_difference"])
+ggsave("typeIpis_difference_wt-glp1_CAGEvsNONCAGE.pdf")
+
+table(atac_data$group)
+wilcox.test(atac_data[which(atac_data$group=="all_pis_typeI.bed"),"mean_ya"],atac_data[which(atac_data$group=="pis_detected_CAGE.bed"),"mean_ya"])
+wilcox.test(atac_data[which(atac_data$group=="all_pis_typeI.bed"),"mean_log2ratio"],atac_data[which(atac_data$group=="pis_detected_CAGE.bed"),"mean_log2ratio"])
+
+
+```
+
+# H3K27ac signal distributions
+
+Here, I import H3K27ac signal within +-500bp from 21U-RNAs (generated using deeptools computeMatrix reference-point), and I average the signal across the 1kb region for all piRNAs, then plot the distributions.
+
+```{r h3k27ac data}
+
+h3k27_data<-read.table("../SuppFig7_H3K27ac_reinke/H3K27signal_for_R_analysis/H3K27ac_ALLDATA.txt",header=TRUE)
+row_names<-read.table("../SuppFig7_H3K27ac_reinke/H3K27signal_for_R_analysis/H3K27ac_ALLDATA.rows.txt")
+
+#colnames(h3k27_data)
+#ncol(h3k27_data)
+#head(h3k27_data)
+
+h3k27_data$GLN_chip_1<-apply(h3k27_data,MARGIN=1,FUN=function(row){return(mean(row[1:100]))})
+h3k27_data$GLN_input_1<-apply(h3k27_data,MARGIN=1,FUN=function(row){return(mean(row[101:200]))})
+h3k27_data$GLN_chip_2<-apply(h3k27_data,MARGIN=1,FUN=function(row){return(mean(row[201:300]))})
+h3k27_data$GLN_input_2<-apply(h3k27_data,MARGIN=1,FUN=function(row){return(mean(row[301:400]))})
+h3k27_data$SOM_chip_1<-apply(h3k27_data,MARGIN=1,FUN=function(row){return(mean(row[401:500]))})
+h3k27_data$SOM_input_1<-apply(h3k27_data,MARGIN=1,FUN=function(row){return(mean(row[501:600]))})
+h3k27_data$SOM_chip_2<-apply(h3k27_data,MARGIN=1,FUN=function(row){return(mean(row[601:700]))})
+h3k27_data$SOM_input_2<-apply(h3k27_data,MARGIN=1,FUN=function(row){return(mean(row[701:800]))})
+h3k27_data$GLN_logratio_1<-apply(h3k27_data,MARGIN=1,FUN=function(row){return(mean(row[801:900]))})
+h3k27_data$GLN_logratio_2<-apply(h3k27_data,MARGIN=1,FUN=function(row){return(mean(row[901:1000]))})
+h3k27_data$SOM_logratio_1<-apply(h3k27_data,MARGIN=1,FUN=function(row){return(mean(row[1001:1100]))})
+h3k27_data$SOM_logratio_2<-apply(h3k27_data,MARGIN=1,FUN=function(row){return(mean(row[1101:1200]))})
+h3k27_data$GLN_subtract_1<-apply(h3k27_data,MARGIN=1,FUN=function(row){return(mean(row[1201:1300]))})
+h3k27_data$GLN_subtract_2<-apply(h3k27_data,MARGIN=1,FUN=function(row){return(mean(row[1301:1400]))})
+h3k27_data$SOM_subtract_1<-apply(h3k27_data,MARGIN=1,FUN=function(row){return(mean(row[1401:1500]))})
+h3k27_data$SOM_subtract_2<-apply(h3k27_data,MARGIN=1,FUN=function(row){return(mean(row[1501:1600]))})
+
+
+rownames(h3k27_data)<-row_names$V4
+h3k27_data$group<-row_names$V13
+
+ggplot(h3k27_data)+geom_boxplot(aes(y=GLN_chip_1,x=group),outlier.shape=NA)+
+  coord_cartesian(ylim=c(0,5))+theme_classic()
+ggsave("K27ac_germline_ChIP_boxplots.pdf")
+
+ggplot(h3k27_data)+geom_boxplot(aes(y=GLN_input_1,x=group),outlier.shape=NA)+
+  coord_cartesian(ylim=c(0,2.5))
+ggsave("K27ac_germline_input_boxplots.pdf")
+
+ggplot(h3k27_data)+geom_boxplot(aes(y=GLN_chip_2,x=group),outlier.shape=NA)+
+  coord_cartesian(ylim=c(0,2.5))
+ggplot(h3k27_data)+geom_boxplot(aes(y=GLN_input_2,x=group),outlier.shape=NA)+
+  coord_cartesian(ylim=c(0,2.5))
+
+
+ggplot(h3k27_data)+geom_boxplot(aes(y=SOM_chip_1,x=group),outlier.shape=NA)+
+  coord_cartesian(ylim=c(0,2.5))
+ggplot(h3k27_data)+geom_boxplot(aes(y=SOM_input_1,x=group),outlier.shape=NA)+
+  coord_cartesian(ylim=c(0,2.5))
+
+ggplot(h3k27_data)+geom_boxplot(aes(y=SOM_chip_2,x=group),outlier.shape=NA)+
+  coord_cartesian(ylim=c(0,2.5))
+ggplot(h3k27_data)+geom_boxplot(aes(y=SOM_input_2,x=group),outlier.shape=NA)+
+  coord_cartesian(ylim=c(0,2.5))
+
+ggplot(h3k27_data)+geom_boxplot(aes(y=GLN_logratio_1,x=group),outlier.shape=NA)+
+  coord_cartesian(ylim=c(-2,2))
+ggplot(h3k27_data)+geom_boxplot(aes(y=GLN_logratio_2,x=group),outlier.shape=NA)+
+  coord_cartesian(ylim=c(-2,2))
+ggplot(h3k27_data)+geom_boxplot(aes(y=GLN_subtract_1,x=group),outlier.shape=NA)+
+  coord_cartesian(ylim=c(-2,2))
+ggplot(h3k27_data)+geom_boxplot(aes(y=GLN_subtract_2,x=group),outlier.shape=NA)+
+  coord_cartesian(ylim=c(-2,2))
+
+
+ggplot(h3k27_data)+geom_boxplot(aes(y=SOM_logratio_1,x=group),outlier.shape=NA)+
+  coord_cartesian(ylim=c(-2,2))
+ggplot(h3k27_data)+geom_boxplot(aes(y=SOM_logratio_2,x=group),outlier.shape=NA)+
+  coord_cartesian(ylim=c(-2,2))
+ggplot(h3k27_data)+geom_boxplot(aes(y=SOM_subtract_1,x=group),outlier.shape=NA)+
+  coord_cartesian(ylim=c(-2,2))
+ggplot(h3k27_data)+geom_boxplot(aes(y=SOM_subtract_2,x=group),outlier.shape=NA)+
+  coord_cartesian(ylim=c(-2,2))
+
+
+```
+
