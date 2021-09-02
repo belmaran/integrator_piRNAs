@@ -1,0 +1,290 @@
+---
+title: "scRNA_vs_CAGE_bypromoternotgene"
+author: "Toni Beltran"
+date: "13/01/2020"
+output: html_document
+---
+
+# DEseq2 on scRNA count data
+
+Here I recover scRNA counts mapping to gene promoters, aggregate them by promoter, and run DEseq2 on the resulting counts matrix, to identify genes with changes in scRNA signal upon ints-11 knockdown. I use data from the chromatin fractions.
+
+```{r load tss-seq data}
+
+library(ggplot2)
+library(reshape2)
+
+setwd("/Users/ab6415/Documents/Work_laptop_stuff/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/FigS8_Integrator_PCgenes/")
+
+tss_counts_germnuclei_fractionation_chentss <- list.files(path="/Users/ab6415/Documents/Work_laptop_stuff/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/FigS8_Integrator_PCgenes/scRNA_counts_TSS_gw/Chen2013_tss_counts/", pattern="*anno") 
+
+tss_counts_germnuclei_fractionation_chentss<-tss_counts_germnuclei_fractionation_chentss[c(5,6,7,8,13,15,17,2,1,3,9,10,11,12,14,16)]
+tss_counts_germnuclei_fractionation_chentss<-paste0("/Users/ab6415/Documents/Work_laptop_stuff/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/FigS8_Integrator_PCgenes/scRNA_counts_TSS_gw/Chen2013_tss_counts/", tss_counts_germnuclei_fractionation_chentss)
+
+names <-c("EV_chr","ints11_chr","TFIIS_chr","TFIIS_ints11_chr","EV_np","ints11_np","TFIIS_np","TFIIS_ints11_np","EV_chr_2","ints11_chr_2","TFIIS_chr_2","TFIIS_ints11_chr_2","EV_np_2","ints11_np_2","TFIIS_np_2","TFIIS_ints11_np_2")
+          
+tss_counts_chen <- lapply(tss_counts_germnuclei_fractionation_chentss,function(i){
+  read.csv(file=i, header=FALSE,sep="\t")
+})
+
+agg_TSScounts<-function(df){
+  df_agg<-aggregate(x=df$V6,by=list(df$V13),FUN=sum)
+}
+
+tss_counts_chen_aggregated<-lapply(tss_counts_chen,FUN = agg_TSScounts)
+
+for (i in 1:length(tss_counts_chen_aggregated)){
+  colnames(tss_counts_chen_aggregated[[i]])[2]<-names[i]
+}
+
+DF <- tss_counts_chen_aggregated[[1]]
+for ( .df in tss_counts_chen_aggregated){
+  DF <-merge(DF,.df,by.x=1, by.y=1, all=TRUE)
+}
+colnames(DF)
+
+DF<-DF[order(DF$Group.1),]
+nrow(DF)
+
+rownames(DF)<-DF$Group.1
+DF$Group.1<-NULL
+DF$EV_chr.x<-NULL
+DF[is.na(DF)]<-0
+colnames(DF)[1]<-"EV_chr"
+colSums(DF)
+
+library(DESeq2)
+library(gplots)
+
+coldata<-data.frame(condition=c(rep(c("EV_chr","ints_11_chr","TFIIS_chr","TFIIS_ints11_chr","EV_np","ints_11_np","TFIIS_np","TFIIS_ints11_np"),2)))
+rownames(coldata)<-colnames(DF)
+
+cds<-DESeqDataSetFromMatrix(countData = DF,
+                            colData = coldata,
+                            design = ~condition)
+dds<-DESeq(cds)
+sizeFactors(dds)
+
+dds_norm<-as.data.frame(counts(dds,normalized=TRUE))
+rpm_norm<-as.data.frame(t(t(DF)/colSums(DF)))*1e6
+
+scRNA_res<-results(dds,contrast = c("condition","ints_11_chr","EV_chr"))
+hist(scRNA_res$padj)
+length(which(scRNA_res$padj<0.15))
+scRNA_res$sig<-rep(0,nrow(scRNA_res))
+scRNA_res$sig[which(scRNA_res$padj<0.1)]<-1
+
+ggplot(as.data.frame(scRNA_res))+geom_point(aes(x=log2(baseMean),y=log2FoldChange,col=sig))
+ggsave("scRNA_DEseq2_analysis.pdf")
+
+up_scRNAs<-rownames(scRNA_res[which(scRNA_res$log2FoldChange>0 & scRNA_res$sig==1),])
+down_scRNAs<-rownames(scRNA_res[which(scRNA_res$log2FoldChange<0 & scRNA_res$sig==1),])
+
+length(up_scRNAs)
+length(down_scRNAs)
+
+
+```
+
+# DEseq on nascent CAGE count data
+
+Here I apply the same analysis to the CAGE data.
+
+```{r cage data}
+
+cage_overlap_pcgenes<-read.table("overlap_starCAGEraw_promoters_Chen2013_liftoverWS252.txt")
+cage_overlap_pcgenes<-cage_overlap_pcgenes[,c(7:14,19)]
+
+cage_aggregated_bygene<-aggregate(x=cage_overlap_pcgenes[,1:8],by=list(cage_overlap_pcgenes[,9]),FUN=sum)
+rownames(cage_aggregated_bygene)<-cage_aggregated_bygene$Group.1
+cage_aggregated_bygene$Group.1<-NULL
+
+colnames(cage_aggregated_bygene)<-c("N2_EV","N2_EV_2","N2_ints11","N2_ints11_2","total","TFIIS_EV_2","TFIIS_ints11","TFIIS_ints11_2")
+heatmap.2(cor(cage_aggregated_bygene))
+
+
+coldata<-data.frame(condition=c("N2_EV","N2_EV","N2_ints11","N2_ints11","total","TFIIS_EV","TFIIS_ints11","TFIIS_ints11"))
+rownames(coldata)<-colnames(cage_aggregated_bygene)
+
+cds<-DESeqDataSetFromMatrix(countData = cage_aggregated_bygene,
+                            colData = coldata,
+                            design = ~condition)
+dds<-DESeq(cds)
+sizeFactors(dds)
+
+dds_norm<-as.data.frame(counts(dds,normalized=TRUE))
+rpm_norm<-as.data.frame(t(t(cage_aggregated_bygene)/colSums(cage_aggregated_bygene)))*1e6
+
+CAGE_res<-results(dds,contrast = c("condition","N2_ints11","N2_EV"))
+hist(CAGE_res$padj)
+length(which(CAGE_res$padj<0.15))
+CAGE_res$sig<-rep(0,nrow(CAGE_res))
+CAGE_res$sig[which(CAGE_res$padj<0.1)]<-1
+
+ggplot(as.data.frame(CAGE_res))+geom_point(aes(x=log2(baseMean),y=log2FoldChange,col=sig))
+ggsave("CAGE_DEseq2_analysis.pdf")
+
+up_CAGE<-rownames(CAGE_res[which(CAGE_res$log2FoldChange>0 & CAGE_res$sig==1),])
+down_CAGE<-rownames(CAGE_res[which(CAGE_res$log2FoldChange<0 & CAGE_res$sig==1),])
+
+write.table(up_CAGE,"CAGE_up_promoters.txt",quote=FALSE,row.names=FALSE)
+write.table(down_CAGE,"CAGE_down_promoters.txt",quote=FALSE,row.names=FALSE)
+
+
+length(up_CAGE)
+length(down_CAGE)
+
+
+intersect(up_CAGE,up_scRNAs)
+intersect(up_CAGE,down_scRNAs)
+intersect(down_CAGE,up_scRNAs)
+intersect(down_CAGE,down_scRNAs)
+
+nrow(scRNA_res[which(scRNA_res$baseMean>=min(scRNA_res[which(scRNA_res$sig==1),"baseMean"])),])
+nrow(CAGE_res[which(CAGE_res$baseMean>=min(CAGE_res[which(CAGE_res$sig==1),"baseMean"])),])
+
+length(intersect(rownames(scRNA_res[which(scRNA_res$baseMean>=min(scRNA_res[which(scRNA_res$sig==1),"baseMean"])),]),
+             rownames(CAGE_res[which(CAGE_res$baseMean>=min(CAGE_res[which(CAGE_res$sig==1),"baseMean"])),])))
+
+genes_changing<-union(union(union(up_CAGE,down_CAGE),up_scRNAs),down_scRNAs)
+
+colnames(scRNA_res)<-paste0("scRNA_",colnames(scRNA_res))
+colnames(CAGE_res)<-paste0("CAGE_",colnames(CAGE_res))
+
+lfcdata_both<-merge(data.frame(scRNA_res[which(rownames(scRNA_res) %in% genes_changing),]),data.frame(CAGE_res[which(rownames(CAGE_res) %in% genes_changing),]),by="row.names")
+
+cor(lfcdata_both$scRNA_log2FoldChange,lfcdata_both$CAGE_log2FoldChange)
+fit<-lm(lfcdata_both$CAGE_log2FoldChange ~ lfcdata_both$scRNA_log2FoldChange)
+summary(fit)
+
+ggplot(lfcdata_both)+geom_point(aes(x=scRNA_log2FoldChange,y=CAGE_log2FoldChange))
+ggplot(lfcdata_both)+geom_point(aes(x=scRNA_log2FoldChange,y=CAGE_log2FoldChange,col=scRNA_sig+CAGE_sig))+
+  geom_hline(yintercept=1,linetype="dashed",col="grey")+
+  geom_hline(yintercept=-1,linetype="dashed",col="grey")+
+  geom_vline(xintercept=1,linetype="dashed",col="grey")+
+  geom_vline(xintercept=-1,linetype="dashed",col="grey")+
+  #geom_abline(intercept = 0.34575, slope=1.01711, col="red")+
+  theme_classic()
+  
+ggsave("scRNA_vs_CAGE_lfc_promoters.pdf",width = 8,height = 5)
+
+length(which(lfcdata_both$scRNA_sig==1 & lfcdata_both$CAGE_sig==1))
+
+length(which(lfcdata_both$scRNA_log2FoldChange>1 & lfcdata_both$CAGE_log2FoldChange>1))
+length(which(lfcdata_both$scRNA_log2FoldChange<(-1) & lfcdata_both$CAGE_log2FoldChange<(-1)))
+length(which(lfcdata_both$scRNA_log2FoldChange>1 & lfcdata_both$CAGE_log2FoldChange<(-1)))
+length(which(lfcdata_both$scRNA_log2FoldChange<(-1) & lfcdata_both$CAGE_log2FoldChange>1))
+
+
+scUP_cageUP<-lfcdata_both[which(lfcdata_both$scRNA_log2FoldChange>1 & lfcdata_both$CAGE_log2FoldChange>1),"Row.names"]
+scDOWN_cageDOWN<-lfcdata_both[which(lfcdata_both$scRNA_log2FoldChange<(-1) & lfcdata_both$CAGE_log2FoldChange<(-1)),"Row.names"]
+scUP_cageDOWN<-lfcdata_both[which(lfcdata_both$scRNA_log2FoldChange>1 & lfcdata_both$CAGE_log2FoldChange<(-1)),"Row.names"]
+scDOWN_cageUP<-lfcdata_both[which(lfcdata_both$scRNA_log2FoldChange<(-1) & lfcdata_both$CAGE_log2FoldChange>1),"Row.names"]
+
+
+#logfcdata all sig and nonsig
+lfcdata_ALL<-merge(data.frame(scRNA_res),data.frame(CAGE_res),by="row.names")
+
+cor(lfcdata_ALL$scRNA_log2FoldChange,lfcdata_ALL$CAGE_log2FoldChange)
+
+fit<-lm(lfcdata_ALL$CAGE_log2FoldChange ~ lfcdata_ALL$scRNA_log2FoldChange)
+summary(fit)
+
+ggplot(lfcdata_ALL)+geom_point(aes(x=scRNA_log2FoldChange,y=CAGE_log2FoldChange))
+ggplot(lfcdata_ALL)+geom_point(aes(x=scRNA_log2FoldChange,y=CAGE_log2FoldChange,col=scRNA_sig+CAGE_sig))+
+  geom_hline(yintercept=1,linetype="dashed",col="grey")+
+  geom_hline(yintercept=-1,linetype="dashed",col="grey")+
+  geom_vline(xintercept=1,linetype="dashed",col="grey")+
+  geom_vline(xintercept=-1,linetype="dashed",col="grey")+
+  ggtitle("all genes detected in both experiments")+
+  theme_classic()
+  
+ggsave("scRNA_vs_CAGE_lfc_promoters_ALLnofilter.pdf",width = 8,height = 5)
+
+
+allgenes_scDOWN_CAGEup_nonsig<-lfcdata_ALL[(which(lfcdata_ALL$scRNA_log2FoldChange<(-1) & lfcdata_ALL$CAGE_log2FoldChange>1)),"Row.names"]
+
+```
+
+# Overlaps with type II piRNAs
+
+
+```{r overlaps with type II piRNAs}
+
+typeIIpis_overlapping_promoters<-read.table("typeIIpis_overlap_promoters.txt")
+typeIIpis_overlapping_promoters<-typeIIpis_overlapping_promoters[,"V11"]
+
+intersect(typeIIpis_overlapping_promoters,scUP_cageUP) #7/257
+intersect(typeIIpis_overlapping_promoters,scDOWN_cageDOWN) #2/130
+intersect(typeIIpis_overlapping_promoters,scUP_cageDOWN) #0/1
+intersect(typeIIpis_overlapping_promoters,scDOWN_cageUP) #3/19
+
+#union
+length(union(rownames(CAGE_res),rownames(scRNA_res)))
+length(intersect(union(rownames(CAGE_res),rownames((scRNA_res))),typeIIpis_overlapping_promoters)) #1801/7951
+length(union(up_scRNAs,up_CAGE))
+length(intersect(typeIIpis_overlapping_promoters,union(up_scRNAs,up_CAGE)))
+
+#intersection
+length(intersect(rownames(CAGE_res),rownames(scRNA_res))) #1150/8333 (CAGE only)
+length(intersect(intersect(rownames(CAGE_res),rownames((scRNA_res))),typeIIpis_overlapping_promoters))
+length(intersect(up_scRNAs,up_CAGE))
+length(intersect(typeIIpis_overlapping_promoters,intersect(up_scRNAs,up_CAGE)))
+
+#CAGE
+length(rownames(CAGE_res))
+length(intersect(rownames(CAGE_res),typeIIpis_overlapping_promoters))
+length(up_CAGE)
+length(intersect(typeIIpis_overlapping_promoters,up_CAGE))
+
+#scRNAs
+length(rownames(scRNA_res))
+length(intersect(rownames(scRNA_res),typeIIpis_overlapping_promoters))
+length(up_scRNAs)
+length(intersect(typeIIpis_overlapping_promoters,up_scRNAs))
+
+#upregulated in either and fc>2 in both
+length(scUP_cageUP)
+length(intersect(scUP_cageUP,typeIIpis_overlapping_promoters))
+ 
+
+#upregulated cage and downregulated scRNAs
+length(scDOWN_cageUP)
+length(intersect(scDOWN_cageUP,typeIIpis_overlapping_promoters))
+
+#upregulated cage and downregulated scRNAs - all genes
+length(allgenes_scDOWN_CAGEup_nonsig)
+length(intersect(allgenes_scDOWN_CAGEup_nonsig,typeIIpis_overlapping_promoters))
+
+length(scDOWN_cageDOWN)
+length(intersect(scDOWN_cageDOWN,typeIIpis_overlapping_promoters))
+
+
+
+#odds ratios
+#scRNA set
+fisher.test(cbind(c(2,369),c(1157,50714)),alternative = "greater")
+#CAGE set
+fisher.test(cbind(c(23,307),c(1150,7183)),alternative = "greater")
+#intersection set
+fisher.test(cbind(c(1,54),c(1146,6805)),alternative = "greater")
+
+#scRNA up, CAGE up
+fisher.test(cbind(c(7,250),c(1146,6805)),alternative = "greater")
+#scRNA down, CAGE up - significant at least in 1 experiment (19 genes)
+fisher.test(cbind(c(3,16),c(1146,6805)),alternative = "greater")
+#scRNA down, CAGE up - no significance threshold (437 genes)
+fisher.test(cbind(c(29,408),c(1146,6805)),alternative = "greater")
+
+pdf("typeII_piRNA_enrichment_upregulated_promoters.pdf")
+barplot(log2(c(0.2375547,0.4679824,0.1662848,1.113406)),ylim=c(-3.7,1),
+        ylab="log2 odds ratio of type II piRNA enrichment relative to all promoters",
+        names=c("up scRNAs\n2/371\np=0.9987","up CAGE\n23/330\np=1","up scRNAs\nup CAGE\n7/257\np=0.9998",
+                "down scRNAs\nup CAGE\n3/19\np=0.53"))
+dev.off()
+
+
+```
+
+
+
