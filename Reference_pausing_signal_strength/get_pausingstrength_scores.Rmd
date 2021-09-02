@@ -1,0 +1,82 @@
+---
+title: "pausing_signal_scores"
+author: "Toni Beltran"
+date: "26/08/2019"
+output: html_document
+---
+
+# Calculation of termination signal strength
+
+Code to calculate termination signal strength as defined and described in Beltran et. al., 2019 Dev Cell.
+
+Emboss dan with default parameters was run on +-200bp intervals around piRNA loci (400bp total), with a window size of 9bp and a step size of 1 - resulting in 392 consecutive windows.
+The loaded data contains Tm calculations for each of the 392 consecutive windows for each piRNA locus. The average profile shows a decrease in melting temperature downstream of 21U-RNAs.
+We calculate termination signal strength by computing the difference between the Tm profile for each individual piRNA locus relative to the average profile:
+
+ - the vector of tm values corresponding to windows 195 to 213 for the locus is collected, and the corresponding vector from average tm values (windows 195 to 213) is subtracted --> the resulting vector is then summed.
+ 
+ - the vector of tm values corresponding to windows 213 to 250 for the locus is collected, and the corresponding vector from average tm values (windows 213 to 250) is subtracted, then multiplied by -1 (since Tm values below average correspond to stronger termination signals) --> the resulting vector is then summed.
+ 
+ - the sum of the two previous values corresponds to the "total tm score"
+ 
+ - the second value (213-250) corresponds to the "downstream only tm score" --> this definition is used in the rest of the analyses here.
+
+
+```{r pausing signal scores}
+
+setwd("/Users/ab6415/Bioinformatics/Analysis/INTEGRATOR_PAPER_ANALYSES/Reference_pausing_signal_strength/")
+
+data<-read.table("all_pis_typeI.bed_TMprofiles_replaced",sep=",")
+ncol(data)
+rownames(data)<-data$V4
+data$V400<-NULL
+
+tm_data_only<-data[,8:399]
+plot(1:392,colSums(tm_data_only)/nrow(tm_data_only),type="line")
+abline(v=223)
+abline(v=194)
+abline(h=10.5)
+lines(x=c(195,195+21),y=c(7,7))
+lines(x=c(193,193+30),y=c(6.7,6.7))
+
+avg_tmprofile<-colSums(tm_data_only)/nrow(tm_data_only)
+
+pausing_strength_scores<-function(row){
+  row_up<-row[195:213]
+  row_down<-row[213:250]
+  score_up<-sum(row_up-avg_tmprofile[195:213])
+  score_down<-sum(row_down-avg_tmprofile[213:250])*(-1)
+  return(c(score_up,score_down,score_up+score_down))
+}
+
+
+pausing_strength_data<-t(apply(tm_data_only,MARGIN = 1,pausing_strength_scores))
+colnames(pausing_strength_data)<-c("tm_upstream","tm_downstream","total")
+
+
+data_with_pausingstrength<-merge(data,pausing_strength_data,by=0,all=TRUE)
+
+data_with_pausingstrength_high<-data_with_pausingstrength[which(data_with_pausingstrength$total>100),]
+data_with_pausingstrength_low<-data_with_pausingstrength[which(data_with_pausingstrength$total<(-100)),]
+plot(1:392,colSums(data_with_pausingstrength_high[,9:400])/nrow(data_with_pausingstrength_high),type="line",ylab="Tm score",main="total, strong")
+plot(1:392,colSums(data_with_pausingstrength_low[,9:400])/nrow(data_with_pausingstrength_low),type="line",ylab="Tm score",main="total, weak")
+
+data_with_pausingstrength_high<-data_with_pausingstrength[which(data_with_pausingstrength$tm_downstream>100),]
+data_with_pausingstrength_low<-data_with_pausingstrength[which(data_with_pausingstrength$tm_downstream<(-100)),]
+plot(1:392,colSums(data_with_pausingstrength_high[,9:400])/nrow(data_with_pausingstrength_high),type="line",ylab="Tm score",main="downstream, strong")
+plot(1:392,colSums(data_with_pausingstrength_low[,9:400])/nrow(data_with_pausingstrength_low),type="line",ylab="Tm score",main="downstream, weak")
+
+
+
+data_with_pausingstrength<-data_with_pausingstrength[,c("V1","V2","V3","V4","V5","V6","tm_upstream","tm_downstream","total")]
+
+library("OneR")
+data_with_pausingstrength$tm_upstream_bins<-bin(data_with_pausingstrength$tm_upstream, nbins = 5, labels = NULL, method = "content")
+data_with_pausingstrength$tm_downstream_bins<-bin(data_with_pausingstrength$tm_downstream, nbins = 5, labels = NULL, method = "content")
+data_with_pausingstrength$tm_total_bins<-bin(data_with_pausingstrength$total, nbins = 5, labels = NULL, method = "content")
+
+
+write.table(data_with_pausingstrength,"all_pis_typeI_pausingscores.bed",row.names = FALSE,quote=FALSE,sep="\t")
+
+```
+
